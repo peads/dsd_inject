@@ -1,0 +1,6 @@
+.idea
+#CMake*
+cmake-build-debug/
+
+inject.c.orig
+.DS_Store
