@@ -50,7 +50,7 @@ void writeToDatabase(void *buf, size_t nbyte) {
     conn = initializeMySqlConnection(bind);
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Generating prepared statement");
-    OUTPUT_DEBUG_STDERR(stderr, INSERT_ERROR, frequency);
+    OUTPUT_INFO_STDERR(stderr, INSERT_ERROR, frequency);
     stmt = generateMySqlStatment(INSERT_STATEMENT, conn, &status, 96);
     if (status != 0) {
         doExit(conn);
