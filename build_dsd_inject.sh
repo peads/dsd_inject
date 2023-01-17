@@ -21,7 +21,4 @@ elif [[ $OSTYPE == 'linux'* ]]; then
   O_FILE='inject.so'
 fi
 
-gcc -Werror -Wno-deprecated-declarations -Wno-unused-variable -Wall -Wextra -O2 -m64 -fPIC -shared
-  -ldl $(mysql_config --cflags) $PWD/src/utils.c $PWD/src/dsd_inject_db_min.c -o $PWD/$O_FILE \
-  $(mysql_config --libs) -lz -fno-stack-protector -fno-stack-clash-protection \
-  -pthread $OPT_FLAGS
+gcc -Werror -Wno-deprecated-declarations -Wno-unused-variable -Wall -Wextra -O2 -m64 -fPIC -shared -ldl $(mysql_config --cflags) $PWD/src/utils.c $PWD/src/dsd_inject_db_min.c -o $O_FILE $(mysql_config --libs) -lz -fno-stack-protector -fno-stack-clash-protection -pthread $OPT_FLAGS

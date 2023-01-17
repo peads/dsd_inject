@@ -41,7 +41,7 @@ void writeToDatabase(void *buf, size_t nbyte) {
 
     conn = initializeMySqlConnection(bind);
 
-    stmt = generateMySqlStatment(conn, &status, 57);
+    stmt = generateMySqlStatment(INSERT_STATEMENT, conn, &status, 57);
     if (status != 0) {
         doExit(conn);
     }

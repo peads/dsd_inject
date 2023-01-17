@@ -22,10 +22,10 @@
 #include <unistd.h>
 #include "utils.h"
 
-#define INSERT_STATEMENT    "insert into frequencydata (frequency) " \
+#define INSERT_STATEMENT    "insert into frequencydata (`frequency`) " \
                             "values (?) on duplicate key update `date_modified`=NOW();"
 #define INSERT_ERROR        "INSERT INTO frequencydata (frequency) " \
-                            "VALUES (%f);"
+                            "VALUES (%s);"
 #define MAX_BUF_SIZE 34
 #define MAX_SQL_ERROR_ARGS 1
 static int isRunning = 0;
@@ -33,28 +33,33 @@ static int isRunning = 0;
 void writeToDatabase(void *buf, size_t nbyte) {
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering correlate_frequencies::writeToDatabase");
     
-    float *frequency = ((float *) buf);
-//    const time_t startTime = time(NULL);
+    //char *frequency = ((char *) buf);
+    
+    char frequency[nbyte];
+    strncpy(frequency, buf, nbyte);
+    frequency[nbyte - 1] = '\0';
+
     int status;
 
     MYSQL_BIND bind[1];
     MYSQL_STMT *stmt;
     MYSQL *conn;
 
-    OUTPUT_DEBUG_STDERR(stderr, "Got %f MHz. With size %ld", *frequency, nbyte);
+    OUTPUT_DEBUG_STDERR(stderr, "Got %s MHz. With size %ld", frequency, nbyte);
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Initializing db connection");
     conn = initializeMySqlConnection(bind);
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Generating prepared statement");
-    OUTPUT_DEBUG_STDERR(stderr, INSERT_ERROR, *frequency);
+    OUTPUT_DEBUG_STDERR(stderr, INSERT_ERROR, frequency);
     stmt = generateMySqlStatment(INSERT_STATEMENT, conn, &status, 96);
     if (status != 0) {
         doExit(conn);
     }
 
     bind[0].buffer_type = MYSQL_TYPE_DECIMAL;
-    bind[0].buffer = frequency;
-    bind[0].length = 0;
+    bind[0].buffer = (char *) &frequency;
+    bind[0].buffer_length = nbyte;
+    bind[0].length = &nbyte;
     bind[0].is_null = 0;
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Binding parameters");
@@ -91,8 +96,8 @@ void *run(void *ctx) {
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Freeing args");
     free(ctx);
 
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering main loop");
     while (isRunning && nbyte >= 0) {
-        OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering main loop");
 
         char buf[MAX_BUF_SIZE];
 
@@ -104,12 +109,13 @@ void *run(void *ctx) {
         char *date = (char *) token;
  
         token = strtok(NULL, ";");
-        float freq = atof((char *) token);
+
+        float freq = atof(token);
         
         if (freq > 0.0) {
             OUTPUT_DEBUG_STDERR(stderr,"date: %s", date);
             OUTPUT_DEBUG_STDERR(stderr,"freq: %f", freq);
-            writeToDatabase(&freq, nbyte);
+            writeToDatabase(token, 8);
         }
     }
 
