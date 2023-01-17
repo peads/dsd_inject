@@ -20,6 +20,10 @@
 
 #include "utils.h"
 
+#define INSERT_STATEMENT    "INSERT INTO frequencydata (frequency) VALUES (?);"
+#define INSERT_ERROR        "INSERT INTO frequencydata (frequency) " \
+                            "VALUES (%f);"
+
 const char *db_pass;
 const char *db_host;
 const char *db_user;
@@ -53,10 +57,9 @@ void initializeEnv() {
     }
 }
 
-void onExit(void) {
+void onExitSuper(void) {
 
     int status;
-    next_write = NULL;
 
     if ((status = sem_unlink("resources")) != 0) {
         fprintf(stderr, "unable to unlink semaphore. status: %s\n", strerror(status));

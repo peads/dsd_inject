@@ -83,6 +83,11 @@ void *run(void *ctx) {
     pthread_exit(&args->pid);
 }
 
+void onExit(void) {
+    next_write = NULL;
+    onExitSuper();
+}
+
 ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
 
     if (NULL == next_write) {

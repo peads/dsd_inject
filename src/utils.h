@@ -40,7 +40,7 @@
 #include <signal.h>
 
 #ifndef TRACE
-#define OUTPUT_DEBUG_STDERR(file, msg, subs)  //
+#define OUTPUT_DEBUG_STDERR(file, msg, subs ...)  //
 #else
 #define OUTPUT_DEBUG_STDERR(file, msg, subs)  fprintf(file, msg, subs)
 #endif
@@ -55,6 +55,7 @@
 #define INSERT_STATEMENT    "INSERT INTO imbedata (date_decoded, data) VALUES (?, ?);"
 #define INSERT_ERROR        "INSERT INTO imbedata (date_decoded, data) " \
                             "VALUES (%zu, (data of size: %zu));"
+
 
 struct thread_args {
     void *buf;
@@ -77,12 +78,14 @@ char *getEnvVarOrDefault(char *name, char *def);
 
 void initializeEnv();
 
-void onExit(void);
+void onExitSuper(void);
 
 MYSQL *initializeMySqlConnection(MYSQL_BIND *bind);
 
 MYSQL_TIME *generateMySqlTime(const time_t *t);
 
 MYSQL_STMT *generateMySqlStatment(MYSQL *conn, int *status);
+
+void writeToDatabase(const void *buf, size_t nbyte);
 
 #endif //UTILS_H

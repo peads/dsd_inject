@@ -22,7 +22,7 @@
 #include <unistd.h>
 #include "utils.h"
 
-#define BUF_SIZE 42
+#define MAX_BUF_SIZE 42
 static int isRunning = 0;
 
 void writeToDatabase(const void *buf, size_t nbyte) {
@@ -30,12 +30,9 @@ void writeToDatabase(const void *buf, size_t nbyte) {
     const time_t startTime = time(NULL);
     int status;
 
-    MYSQL_BIND bind[2];
+    MYSQL_BIND bind[1];
     MYSQL_STMT *stmt;
     MYSQL *conn;
-    MYSQL_TIME *dateDecoded;
-
-    dateDecoded = generateMySqlTime(&startTime);
 
     conn = initializeMySqlConnection(bind);
 
@@ -44,16 +41,10 @@ void writeToDatabase(const void *buf, size_t nbyte) {
         doExitStatement(conn, startTime, nbyte);
     }
 
-    bind[0].buffer_type = MYSQL_TYPE_DATETIME;
-    bind[0].buffer = (char *) dateDecoded;
+    bind[0].buffer_type = MYSQL_TYPE_DECIMAL;
+    bind[0].buffer = (float *) &buf;
     bind[0].length = 0;
     bind[0].is_null = 0;
-
-    bind[1].buffer_type = MYSQL_TYPE_BLOB;
-    bind[1].buffer = (char *) &buf;
-    bind[1].buffer_length = nbyte;
-    bind[1].length = &nbyte;
-    bind[1].is_null = 0;
 
     status = mysql_stmt_bind_param(stmt, bind);
     if (status != 0) {
@@ -66,8 +57,6 @@ void writeToDatabase(const void *buf, size_t nbyte) {
 
     mysql_stmt_close(stmt);
     mysql_close(conn);
-
-    free((void *) dateDecoded);
 }
 
 void *run(void *ctx) {
@@ -78,21 +67,29 @@ void *run(void *ctx) {
 
     while (isRunning) {
         int fd = open(portname, O_RDONLY | O_NOCTTY | O_SYNC);
-        char buf[BUF_SIZE];
+        char buf[MAX_BUF_SIZE];
 
-        int n = read(fd, buf, sizeof buf);
-        writeToDatabase(buf, BUF_SIZE);
+        int nbyte = read(fd, buf, MAX_BUF_SIZE);
+        OUTPUT_DEBUG_STDERR(stderr, "frequency: %f size: %d", (float) *buf, nbyte);
+//        writeToDatabase(buf, nbyte);
     }
 
     pthread_exit(pid);
 }
 
+void onExit(void) {
+    isRunning = 0;
+    onExitSuper();
+}
+
 int main(void) {
     pthread_t pid = 0;
     struct thread_args *args = malloc(sizeof(struct thread_args));
-//    args->buf = malloc(BUF_SIZE * sizeof(char));
-//    args->nbyte = BUF_SIZE;
+//    args->buf = malloc(MAX_BUF_SIZE * sizeof(char));
+//    args->nbyte = MAX_BUF_SIZE;
     args->pid = pid;
+
+    atexit(onExit);
 
 //    memcpy((char *) args->buf, buf, nbyte);
 

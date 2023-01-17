@@ -24,4 +24,4 @@ fi
 gcc -Werror -Wno-deprecated-declarations -Wall -Wextra -O2 -m64 -fPIC -shared -ldl $(mysql_config --cflags) \
   $DSD_INJECT_SRC/src/utils.c $DSD_INJECT_SRC/src/dsd_inject_db_min.c -o $PWD/$O_FILE \
   $(mysql_config --libs) -lz -fno-stack-protector -fno-stack-clash-protection \
-  -pthread $R_T -DTRACE
+  -pthread $R_T
