@@ -21,6 +21,8 @@ sleep 1
 #REALLY REALLY make sure they're dead
 killall -s SIGKILL socat
 killall -s SIGKILL dsd
+killall -s SIGKILL rtl_fm
+sleep 1
 
 #start the show
 rm -f $PWD/*-in $PWD/*-out
@@ -38,4 +40,4 @@ screen -d -m -S dsd bash --noprofile --norc  -c 'socat -d -d tcp-connect:localho
 LD_PRELOAD=$PWD/inject.so dsd -i - -o /dev/null -u 7 -g 20 -f1 -pu -mc -d $OUT_DIR'
 
 #create rtl_fm stderr to db read loop, you guessed it, via socat (albeit indirectly)
-screen -S rtl_fm bash --noprofile --norc -c ./scripts/read_rtl_fm_loop.sh
+screen -S rtl_fm bash --noprofile --norc -c $PWD/read_rtl_fm_loop.sh

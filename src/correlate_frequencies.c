@@ -47,7 +47,7 @@ void doExitStatement(MYSQL *conn, ...) {
         fprintf(stderr,
                 "WARNING: Incorrect number of variadic parameters passed to correlate_frequency::doExitStatement\n"
                 "Expected: %d Got: %d", MAX_SQL_ERROR_ARGS, max);
-    }else{
+    } else {
         const float frequency = *va_arg(ptr, float*);
 
         fprintf(stderr, INSERT_ERROR, frequency);
@@ -65,8 +65,10 @@ void writeToDatabase(const void *buf, size_t nbyte) {
     MYSQL_STMT *stmt;
     MYSQL *conn;
 
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Initializing db connection");
     conn = initializeMySqlConnection(bind);
 
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Generating prepared statement");
     stmt = generateMySqlStatment(conn, &status);
     if (status != 0) {
         doExitStatement(conn, buf);
@@ -77,10 +79,13 @@ void writeToDatabase(const void *buf, size_t nbyte) {
     bind[0].length = 0;
     bind[0].is_null = 0;
 
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Binding parameters");
     status = mysql_stmt_bind_param(stmt, bind);
     if (status != 0) {
         doExitStatement(conn, startTime, nbyte);
     }
+
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Executing prepared statement");
     status = mysql_stmt_execute(stmt);
     if (status != 0) {
         doExitStatement(conn, startTime, nbyte);
@@ -96,26 +101,28 @@ void writeToDatabase(const void *buf, size_t nbyte) {
 
 void *run(void *ctx) {
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Read thread spawned");
-    static char *portname = "$PWD/db-out";
+    struct thread_args *args = (struct thread_args *)ctx;
+    char *portname = (char *)args->buf;
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Fetching args");
-    struct thread_args *args = (struct thread_args *) ctx;
     pthread_t pid = args->pid;
+    int nbyte = 0;
+    OUTPUT_DEBUG_STDERR(stderr, "Opening file: %s", portname);
+    int fd = open(portname, O_RDONLY | O_NOCTTY | O_SYNC);
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Freeing args");
     free(ctx);
 
-    while (isRunning) {
+    while (isRunning && nbyte >= 0) {
         OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering main loop");
 
         OUTPUT_DEBUG_STDERR(stderr, "%s", "Opening tty");
-        int fd = open(portname, O_RDONLY | O_NOCTTY | O_SYNC);
         char buf[MAX_BUF_SIZE];
 
         OUTPUT_DEBUG_STDERR(stderr, "%s", "Reading tty");
-        int nbyte = read(fd, buf, MAX_BUF_SIZE);
+        nbyte = read(fd, buf, MAX_BUF_SIZE);
         OUTPUT_DEBUG_STDERR(stderr, "frequency: %f size: %d", (float) *buf, nbyte);
-//        writeToDatabase(buf, nbyte);
+//        if (nbyte > 0) writeToDatabase(buf, nbyte);
     }
 
 
@@ -128,8 +135,13 @@ void onExit(void) {
     onExitSuper();
 }
 
-int main(void) {
+int main(int argc, char *argv[]) {
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering correlate_frequencies::main");
+    if (argc <= 1) {
+        fprintf(stderr, "Too few argument. Expected: 2 Got: %d\n", argc);
+        return -1;
+    }
+
     if (!isRunning) {
         initializeEnv();
         initializeSignalHandlers();
@@ -137,18 +149,18 @@ int main(void) {
 
         pthread_t pid = 0;
         struct thread_args *args = malloc(sizeof(struct thread_args));
-//    args->buf = malloc(MAX_BUF_SIZE * sizeof(char));
+        args->buf = malloc(sizeof(args[1]));
 //    args->nbyte = MAX_BUF_SIZE;
 
         OUTPUT_DEBUG_STDERR(stderr, "%s", "Setting exit");
         atexit(onExit);
 
-//    memcpy((char *) args->buf, buf, nbyte);
+        memcpy((char *) args->buf, (void *) &argv[1], sizeof(args[1]));
 
 
-        pthread_create(&pid, NULL, run, (void *) args);  
+        pthread_create(&pid, NULL, run, (void *) args);
         args->pid = pid;
+        OUTPUT_DEBUG_STDERR(stderr, "Spawning read thread pid: %ld", *(long *) pid);
         pthread_join(pid, NULL);
-        OUTPUT_DEBUG_STDERR(stderr, "Spawning read thread pid: %ld", pid);
     }
 }
