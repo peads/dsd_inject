@@ -30,7 +30,8 @@
 #ifdef INSERT_ERROR
 #undef INSERT_ERROR
 #endif
-#define INSERT_STATEMENT    "INSERT INTO frequencydata (frequency) VALUES (?);"
+#define INSERT_STATEMENT    "insert into frequencydata (frequency) " \
+                            "values (?) on duplicate key update `date_modified`=NOW()"_
 #define INSERT_ERROR        "INSERT INTO frequencydata (frequency) " \
                             "VALUES (%f);"
 #define MAX_BUF_SIZE 34
@@ -46,7 +47,7 @@ void doExitStatement(MYSQL *conn, ...) {
     if (max != MAX_SQL_ERROR_ARGS) {
         fprintf(stderr,
                 "WARNING: Incorrect number of variadic parameters passed to correlate_frequency::doExitStatement\n"
-                "Expected: %d Got: %d", MAX_SQL_ERROR_ARGS, max);
+                "Expected: %d Got: %d\n", MAX_SQL_ERROR_ARGS, max);
     } else {
         const float frequency = *va_arg(ptr, float*);
 
@@ -55,7 +56,7 @@ void doExitStatement(MYSQL *conn, ...) {
     doExit(conn);
 }
 
-void writeToDatabase(const void *buf, size_t nbyte) {
+void writeToDatabase(void *buf, size_t) {
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering correlate_frequencies::writeToDatabase");
 
     const time_t startTime = time(NULL);
@@ -71,24 +72,24 @@ void writeToDatabase(const void *buf, size_t nbyte) {
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Generating prepared statement");
     stmt = generateMySqlStatment(conn, &status);
     if (status != 0) {
-        doExitStatement(conn, buf);
+        doExit(conn);
     }
 
     bind[0].buffer_type = MYSQL_TYPE_DECIMAL;
-    bind[0].buffer = (float *) &buf;
+    bind[0].buffer = buf;
     bind[0].length = 0;
     bind[0].is_null = 0;
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Binding parameters");
     status = mysql_stmt_bind_param(stmt, bind);
     if (status != 0) {
-        doExitStatement(conn, startTime, nbyte);
+        doExit(conn);
     }
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Executing prepared statement");
     status = mysql_stmt_execute(stmt);
     if (status != 0) {
-        doExitStatement(conn, startTime, nbyte);
+        doExit(conn);
     }
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing statement");
@@ -116,19 +117,23 @@ void *run(void *ctx) {
     while (isRunning && nbyte >= 0) {
         OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering main loop");
 
-        OUTPUT_DEBUG_STDERR(stderr, "%s", "Opening tty");
         char buf[MAX_BUF_SIZE];
 
-        OUTPUT_DEBUG_STDERR(stderr, "%s", "Reading tty");
+        OUTPUT_DEBUG_STDERR(stderr, "%s", "Reading file");
         nbyte = read(fd, buf, MAX_BUF_SIZE);
-        if (nbyte > 0) {
-            char *token = strtok(buf, ";");
-            OUTPUT_DEBUG_STDERR(stderr, "data: %s", (char *) token);
-            
-            token = strtok(NULL, " ");
-            OUTPUT_DEBUG_STDERR(stderr, "data: %f", atof((char *) token));
+        OUTPUT_DEBUG_STDERR(stderr, "Read: %d bytes", nbyte);
+        
+        char *token = strtok(buf, ";");
+        char *date = (char *) token;
+        
+        token = strtok(NULL, ";");
+        float freq = atof((char *) token);
+        
+        if (freq > 0.0) {
+            OUTPUT_DEBUG_STDERR(stderr,"date: %s", date);
+            OUTPUT_DEBUG_STDERR(stderr,"freq: %f", freq);
+            //writeToDatabase(&freq, nbyte);
         }
-//        if (nbyte > 0) writeToDatabase(buf, nbyte);
     }
 
 

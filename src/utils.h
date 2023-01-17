@@ -85,6 +85,6 @@ MYSQL_TIME *generateMySqlTime(const time_t *t);
 
 MYSQL_STMT *generateMySqlStatment(MYSQL *conn, int *status);
 
-void writeToDatabase(const void *buf, size_t nbyte);
+void writeToDatabase(void *buf, size_t nbyte);
 
 #endif //UTILS_H
