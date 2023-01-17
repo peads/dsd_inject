@@ -56,6 +56,7 @@ void doExitStatement(MYSQL *conn, ...) {
 }
 
 void writeToDatabase(const void *buf, size_t nbyte) {
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering correlate_frequencies::writeToDatabase");
 
     const time_t startTime = time(NULL);
     int status;
@@ -85,25 +86,40 @@ void writeToDatabase(const void *buf, size_t nbyte) {
         doExitStatement(conn, startTime, nbyte);
     }
 
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing statement");
     mysql_stmt_close(stmt);
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing database connection");
     mysql_close(conn);
+
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering correlate_frequencies::writeToDatabase");
 }
 
 void *run(void *ctx) {
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Read thread spawned");
     static char *portname = "$PWD/db-out";
+
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Fetching args");
     struct thread_args *args = (struct thread_args *) ctx;
     pthread_t pid = args->pid;
+
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Freeing args");
     free(ctx);
 
     while (isRunning) {
+        OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering main loop");
+
+        OUTPUT_DEBUG_STDERR(stderr, "%s", "Opening tty");
         int fd = open(portname, O_RDONLY | O_NOCTTY | O_SYNC);
         char buf[MAX_BUF_SIZE];
 
+        OUTPUT_DEBUG_STDERR(stderr, "%s", "Reading tty");
         int nbyte = read(fd, buf, MAX_BUF_SIZE);
         OUTPUT_DEBUG_STDERR(stderr, "frequency: %f size: %d", (float) *buf, nbyte);
 //        writeToDatabase(buf, nbyte);
     }
 
+
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Thread ending");
     pthread_exit(&pid);
 }
 
@@ -113,16 +129,19 @@ void onExit(void) {
 }
 
 int main(void) {
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering correlate_frequencies::main");
     pthread_t pid = 0;
     struct thread_args *args = malloc(sizeof(struct thread_args));
 //    args->buf = malloc(MAX_BUF_SIZE * sizeof(char));
 //    args->nbyte = MAX_BUF_SIZE;
     args->pid = pid;
 
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Setting exit");
     atexit(onExit);
 
 //    memcpy((char *) args->buf, buf, nbyte);
 
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Spawning read thread");
     pthread_create(&args->pid, NULL, run, (void *) args);
     pthread_detach(pid);
 

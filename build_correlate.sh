@@ -19,6 +19,6 @@ elif [[ $OSTYPE == 'linux'* ]]; then
   R_T='-lrt'
 fi
 
-gcc -Werror -Wno-deprecated-declarations -Wall -Wextra -O2 -m64 -ldl $(mysql_config --cflags) \
+gcc -Werror -Wno-deprecated-declarations -Wno-unused-variable -Wall -Wextra -O2 -m64 -ldl $(mysql_config --cflags) \
   $PWD/src/utils.c $PWD/src/correlate_frequencies.c -o $PWD/correlate_frequencies\
   $(mysql_config --libs) -lz -pthread $R_T -DTRACE
