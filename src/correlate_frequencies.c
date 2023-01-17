@@ -133,21 +133,22 @@ int main(void) {
     if (!isRunning) {
         initializeEnv();
         initializeSignalHandlers();
+        isRunning = 1;
 
         pthread_t pid = 0;
         struct thread_args *args = malloc(sizeof(struct thread_args));
 //    args->buf = malloc(MAX_BUF_SIZE * sizeof(char));
 //    args->nbyte = MAX_BUF_SIZE;
-        args->pid = pid;
 
         OUTPUT_DEBUG_STDERR(stderr, "%s", "Setting exit");
         atexit(onExit);
 
 //    memcpy((char *) args->buf, buf, nbyte);
 
-        OUTPUT_DEBUG_STDERR(stderr, "%s", "Spawning read thread");
-        pthread_create(&args->pid, NULL, run, (void *) args);
-        isRunning = 1;
+
+        pthread_create(&pid, NULL, run, (void *) args);  
+        args->pid = pid;
         pthread_join(pid, NULL);
+        OUTPUT_DEBUG_STDERR(stderr, "Spawning read thread pid: %ld", pid);
     }
 }
