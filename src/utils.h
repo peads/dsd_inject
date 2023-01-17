@@ -52,9 +52,8 @@
 #endif
 
 #define LENGTH_OF(arr) (sizeof(arr) / sizeof(*(arr)))
-#define INSERT_STATEMENT    "INSERT INTO imbedata (date_decoded, data) VALUES (?, ?);"
-#define INSERT_ERROR        "INSERT INTO imbedata (date_decoded, data) " \
-                            "VALUES (%zu, (data of size: %zu));"
+#define INSERT_STATEMENT    "redefine this in source/header files that include this one"
+#define INSERT_ERROR        "redefine this in source/header files that include this one"
 
 
 struct thread_args {

@@ -23,6 +23,18 @@
 
 #include "utils.h"
 
+#ifdef INSERT_STATEMENT
+#undef INSERT_STATEMENT
+#endif
+
+#ifdef INSERT_ERROR
+#undef INSERT_ERROR
+#endif
+
+#define INSERT_STATEMENT    "INSERT INTO imbedata (date_decoded, data) VALUES (?, ?);"
+#define INSERT_ERROR        "INSERT INTO imbedata (date_decoded, data) " \
+                            "VALUES (%zu, (data of size: %zu));"
+
 static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
 
 /* main functions */

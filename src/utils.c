@@ -20,10 +20,6 @@
 
 #include "utils.h"
 
-#define INSERT_STATEMENT    "INSERT INTO frequencydata (frequency) VALUES (?);"
-#define INSERT_ERROR        "INSERT INTO frequencydata (frequency) " \
-                            "VALUES (%f);"
-
 const char *db_pass;
 const char *db_host;
 const char *db_user;

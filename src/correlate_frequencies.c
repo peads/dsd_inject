@@ -22,6 +22,17 @@
 #include <unistd.h>
 #include "utils.h"
 
+
+#ifdef INSERT_STATEMENT
+#undef INSERT_STATEMENT
+#endif
+
+#ifdef INSERT_ERROR
+#undef INSERT_ERROR
+#endif
+#define INSERT_STATEMENT    "INSERT INTO frequencydata (frequency) VALUES (?);"
+#define INSERT_ERROR        "INSERT INTO frequencydata (frequency) " \
+                            "VALUES (%f);"
 #define MAX_BUF_SIZE 42
 static int isRunning = 0;
 
@@ -62,7 +73,7 @@ void writeToDatabase(const void *buf, size_t nbyte) {
 void *run(void *ctx) {
     static char *portname = "$PWD/db-out";
     struct thread_args *args = (struct thread_args *) ctx;
-    const pthread_t pid = args->pid;
+    pthread_t pid = args->pid;
     free(ctx);
 
     while (isRunning) {
@@ -74,7 +85,7 @@ void *run(void *ctx) {
 //        writeToDatabase(buf, nbyte);
     }
 
-    pthread_exit(pid);
+    pthread_exit(&pid);
 }
 
 void onExit(void) {
