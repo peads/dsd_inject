@@ -42,13 +42,13 @@
 #ifndef TRACE
 #define OUTPUT_DEBUG_STDERR(file, msg, subs ...)  //
 #else
-#define OUTPUT_DEBUG_STDERR(file, msg, subs ...)  fprintf(file, msg, subs)
+#define OUTPUT_DEBUG_STDERR(file, msg, subs ...)  fprintf(file, msg "\n", subs)
 #endif
 
 #if !(defined(DEBUG) || defined(TRACE))
 #define OUTPUT_INFO_STDERR(file, msg, subs ...)  //
 #else
-#define OUTPUT_INFO_STDERR(file, msg, subs ...)  fprintf(file, msg, subs)
+#define OUTPUT_INFO_STDERR(file, msg, subs ...)  fprintf(file, msg "\n", subs)
 #endif
 
 #define LENGTH_OF(arr) (sizeof(arr) / sizeof(*(arr)))

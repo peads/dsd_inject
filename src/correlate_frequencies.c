@@ -130,20 +130,24 @@ void onExit(void) {
 
 int main(void) {
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering correlate_frequencies::main");
-    pthread_t pid = 0;
-    struct thread_args *args = malloc(sizeof(struct thread_args));
+    if (!isRunning) {
+        initializeEnv();
+        initializeSignalHandlers();
+
+        pthread_t pid = 0;
+        struct thread_args *args = malloc(sizeof(struct thread_args));
 //    args->buf = malloc(MAX_BUF_SIZE * sizeof(char));
 //    args->nbyte = MAX_BUF_SIZE;
-    args->pid = pid;
+        args->pid = pid;
 
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "Setting exit");
-    atexit(onExit);
+        OUTPUT_DEBUG_STDERR(stderr, "%s", "Setting exit");
+        atexit(onExit);
 
 //    memcpy((char *) args->buf, buf, nbyte);
 
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "Spawning read thread");
-    pthread_create(&args->pid, NULL, run, (void *) args);
-    pthread_detach(pid);
-
-    isRunning = 1;
+        OUTPUT_DEBUG_STDERR(stderr, "%s", "Spawning read thread");
+        pthread_create(&args->pid, NULL, run, (void *) args);
+        isRunning = 1;
+        pthread_join(pid, NULL);
+    }
 }
