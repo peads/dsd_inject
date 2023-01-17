@@ -14,14 +14,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 if [[ $OSTYPE == 'darwin'* ]]; then
-  R_T=''
+  OPT_FLAGS=''
   O_FILE='inject.dylib'
 elif [[ $OSTYPE == 'linux'* ]]; then
-  R_T='-lrt'
+  OPT_FLAGS='-lrt'
   O_FILE='inject.so'
 fi
 
 gcc -Werror -Wno-deprecated-declarations -Wno-unused-variable -Wall -Wextra -O2 -m64 -fPIC -shared
   -ldl $(mysql_config --cflags) $PWD/src/utils.c $PWD/src/dsd_inject_db_min.c -o $PWD/$O_FILE \
   $(mysql_config --libs) -lz -fno-stack-protector -fno-stack-clash-protection \
-  -pthread $R_T
+  -pthread $OPT_FLAGS

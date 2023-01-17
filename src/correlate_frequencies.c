@@ -22,43 +22,19 @@
 #include <unistd.h>
 #include "utils.h"
 
-
-#ifdef INSERT_STATEMENT
-#undef INSERT_STATEMENT
-#endif
-
-#ifdef INSERT_ERROR
-#undef INSERT_ERROR
-#endif
 #define INSERT_STATEMENT    "insert into frequencydata (frequency) " \
-                            "values (?) on duplicate key update `date_modified`=NOW()"
+                            "values (?) on duplicate key update `date_modified`=NOW();"
 #define INSERT_ERROR        "INSERT INTO frequencydata (frequency) " \
                             "VALUES (%f);"
 #define MAX_BUF_SIZE 34
 #define MAX_SQL_ERROR_ARGS 1
 static int isRunning = 0;
 
-void doExitStatement(MYSQL *conn, ...) {
-
-    va_list ptr;
-    va_start(ptr, conn);
-    int max = va_arg(ptr, int);
-
-    if (max != MAX_SQL_ERROR_ARGS) {
-        fprintf(stderr,
-                "WARNING: Incorrect number of variadic parameters passed to correlate_frequency::doExitStatement\n"
-                "Expected: %d Got: %d\n", MAX_SQL_ERROR_ARGS, max);
-    } else {
-        const float frequency = *va_arg(ptr, float*);
-    }
-    doExit(conn);
-}
-
 void writeToDatabase(void *buf, size_t nbyte) {
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering correlate_frequencies::writeToDatabase");
     
     float *frequency = ((float *) buf);
-    const time_t startTime = time(NULL);
+//    const time_t startTime = time(NULL);
     int status;
 
     MYSQL_BIND bind[1];
@@ -71,7 +47,7 @@ void writeToDatabase(void *buf, size_t nbyte) {
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Generating prepared statement");
     OUTPUT_DEBUG_STDERR(stderr, INSERT_ERROR, *frequency);
-    stmt = generateMySqlStatment(conn, &status);
+    stmt = generateMySqlStatment(INSERT_STATEMENT, conn, &status, 96);
     if (status != 0) {
         doExit(conn);
     }

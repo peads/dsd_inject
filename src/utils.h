@@ -52,9 +52,6 @@
 #endif
 
 #define LENGTH_OF(arr) (sizeof(arr) / sizeof(*(arr)))
-#define INSERT_STATEMENT    "redefine this in source/header files that include this one"
-#define INSERT_ERROR        "redefine this in source/header files that include this one"
-
 
 struct thread_args {
     void *buf;
@@ -66,8 +63,6 @@ static sem_t sem;
 
 /* util functions */
 void doExit(MYSQL *con);
-
-void doExitStatement(MYSQL *conn, ...);
 
 void onSignal(int sig);
 
@@ -83,7 +78,7 @@ MYSQL *initializeMySqlConnection(MYSQL_BIND *bind);
 
 MYSQL_TIME *generateMySqlTime(const time_t *t);
 
-MYSQL_STMT *generateMySqlStatment(MYSQL *conn, int *status);
+MYSQL_STMT *generateMySqlStatment(char *statement, MYSQL *conn, int *status, long size);
 
 void writeToDatabase(void *buf, size_t nbyte);
 

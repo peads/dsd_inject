@@ -19,37 +19,15 @@
 //
 #include "inject.h"
 
-#define MAX_SQL_ERROR_ARGS 2
-
+#define INSERT_STATEMENT    "INSERT INTO imbedata (date_decoded, data) VALUES (?, ?);"
+#define INSERT_ERROR        "INSERT INTO imbedata (date_decoded, data) " \
+                            "VALUES (%zu, (data of size: %zu));"
 extern const char *db_pass;
 extern const char *db_host;
 extern const char *db_user;
 extern const char *schema;
 
-void doExitStatement(MYSQL *conn, ...) {
-    va_list ptr;
-    va_start(ptr, conn);
-    int max = va_arg(ptr, int);
-
-    if (max != MAX_SQL_ERROR_ARGS) {
-        fprintf(stderr,
-                "WARNING: Incorrect number of variadic parameters passed to correlate_frequency::doExitStatement\n"
-                "Expected: %d Got: %d", MAX_SQL_ERROR_ARGS, max);
-    } else {
-        int i = 0;
-        time_t date;
-        size_t size;
-
-        for (; i < max; ++i) {
-            date = *va_arg(ptr, time_t*);
-            size = *va_arg(ptr, size_t*);
-        }
-        fprintf(stderr, INSERT_ERROR, date, size);
-    }
-    doExit(conn);
-}
-
-void writeToDatabase(const void *buf, size_t nbyte) {
+void writeToDatabase(void *buf, size_t nbyte) {
 
     const time_t startTime = time(NULL);
     int status;
@@ -63,9 +41,9 @@ void writeToDatabase(const void *buf, size_t nbyte) {
 
     conn = initializeMySqlConnection(bind);
 
-    stmt = generateMySqlStatment(conn, &status);
+    stmt = generateMySqlStatment(conn, &status, 57);
     if (status != 0) {
-        doExitStatement(conn, startTime, nbyte);
+        doExit(conn);
     }
 
     bind[0].buffer_type = MYSQL_TYPE_DATETIME;
@@ -81,11 +59,11 @@ void writeToDatabase(const void *buf, size_t nbyte) {
 
     status = mysql_stmt_bind_param(stmt, bind);
     if (status != 0) {
-        doExitStatement(conn, startTime, nbyte);
+        doExit(conn);
     }
     status = mysql_stmt_execute(stmt);
     if (status != 0) {
-        doExitStatement(conn, startTime, nbyte);
+        doExit(conn);
     }
 
     mysql_stmt_close(stmt);

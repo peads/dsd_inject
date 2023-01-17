@@ -151,13 +151,11 @@ MYSQL_TIME *generateMySqlTime(const time_t *t) {
     return dateDecoded;
 }
 
-MYSQL_STMT *generateMySqlStatment(MYSQL *conn, int *status) {
+MYSQL_STMT *generateMySqlStatment(char *statement, MYSQL *conn, int *status, long size) {
 
     MYSQL_STMT *stmt;
 
     stmt = mysql_stmt_init(conn);
-    *status = mysql_stmt_prepare(stmt,
-                                 INSERT_STATEMENT,
-                                 LENGTH_OF(INSERT_STATEMENT));
+    *status = mysql_stmt_prepare(stmt,statement,size);
     return stmt;
 }
