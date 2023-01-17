@@ -31,7 +31,7 @@
 #undef INSERT_ERROR
 #endif
 #define INSERT_STATEMENT    "insert into frequencydata (frequency) " \
-                            "values (?) on duplicate key update `date_modified`=NOW()"_
+                            "values (?) on duplicate key update `date_modified`=NOW()"
 #define INSERT_ERROR        "INSERT INTO frequencydata (frequency) " \
                             "VALUES (%f);"
 #define MAX_BUF_SIZE 34
@@ -50,15 +50,14 @@ void doExitStatement(MYSQL *conn, ...) {
                 "Expected: %d Got: %d\n", MAX_SQL_ERROR_ARGS, max);
     } else {
         const float frequency = *va_arg(ptr, float*);
-
-        fprintf(stderr, INSERT_ERROR, frequency);
     }
     doExit(conn);
 }
 
-void writeToDatabase(void *buf, size_t) {
+void writeToDatabase(void *buf, size_t nbyte) {
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering correlate_frequencies::writeToDatabase");
-
+    
+    float *frequency = ((float *) buf);
     const time_t startTime = time(NULL);
     int status;
 
@@ -66,17 +65,19 @@ void writeToDatabase(void *buf, size_t) {
     MYSQL_STMT *stmt;
     MYSQL *conn;
 
+    OUTPUT_DEBUG_STDERR(stderr, "Got %f MHz. With size %ld", *frequency, nbyte);
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Initializing db connection");
     conn = initializeMySqlConnection(bind);
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Generating prepared statement");
+    OUTPUT_DEBUG_STDERR(stderr, INSERT_ERROR, *frequency);
     stmt = generateMySqlStatment(conn, &status);
     if (status != 0) {
         doExit(conn);
     }
 
     bind[0].buffer_type = MYSQL_TYPE_DECIMAL;
-    bind[0].buffer = buf;
+    bind[0].buffer = frequency;
     bind[0].length = 0;
     bind[0].is_null = 0;
 
@@ -125,14 +126,14 @@ void *run(void *ctx) {
         
         char *token = strtok(buf, ";");
         char *date = (char *) token;
-        
+ 
         token = strtok(NULL, ";");
         float freq = atof((char *) token);
         
         if (freq > 0.0) {
             OUTPUT_DEBUG_STDERR(stderr,"date: %s", date);
             OUTPUT_DEBUG_STDERR(stderr,"freq: %f", freq);
-            //writeToDatabase(&freq, nbyte);
+            writeToDatabase(&freq, nbyte);
         }
     }
 
