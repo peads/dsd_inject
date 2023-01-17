@@ -1,6 +1,9 @@
 .idea
 #CMake*
 cmake-build-debug/
-
-inject.c.orig
+build/
+*.so
+*.dylib
+correlate_frequencies
+*orig
 .DS_Store
