@@ -25,6 +25,8 @@ add_definitions(-fPIC)
 add_definitions(-pthread)
 ADD_DEFINITIONS(-Werror)
 ADD_DEFINITIONS(-Wno-deprecated-declarations)
+add_definitions(-Wno-unused-but-set-variable)
+add_definitions(-Wno-unused-variable)
 ADD_DEFINITIONS(-Wall)
 ADD_DEFINITIONS(-Wextra)
 

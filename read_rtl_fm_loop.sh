@@ -16,7 +16,7 @@
 while read var; do
     echo  $(date +"%Y-%m-%dT%H:%M:%S%:z"), $var;
 done < $PWD/fm-out |
-awk -F', ' 'BEGIN{OFS=" "}
+awk -F', ' 'BEGIN{OFS=";"}
 { gsub(/ rms/,""); gsub(/ avg/,""); gsub(/ squelch/,"") }
 {
     if ($3>=$6) {

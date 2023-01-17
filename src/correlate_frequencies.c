@@ -33,7 +33,7 @@
 #define INSERT_STATEMENT    "INSERT INTO frequencydata (frequency) VALUES (?);"
 #define INSERT_ERROR        "INSERT INTO frequencydata (frequency) " \
                             "VALUES (%f);"
-#define MAX_BUF_SIZE 42
+#define MAX_BUF_SIZE 34
 #define MAX_SQL_ERROR_ARGS 1
 static int isRunning = 0;
 
@@ -122,7 +122,7 @@ void *run(void *ctx) {
         OUTPUT_DEBUG_STDERR(stderr, "%s", "Reading tty");
         nbyte = read(fd, buf, MAX_BUF_SIZE);
         if (nbyte > 0) {
-            char *token = strtok(buf, " ");
+            char *token = strtok(buf, ";");
             OUTPUT_DEBUG_STDERR(stderr, "data: %s", (char *) token);
             
             token = strtok(NULL, " ");
