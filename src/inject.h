@@ -28,6 +28,8 @@ static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t of
 /* main functions */
 void *run(void *ctx);
 
+void writeToDatabase(void *buf, size_t nbyte);
+
 ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset);
 
 #endif //DSD_INJECT_INJECT_H

@@ -19,6 +19,8 @@ project(dsd_inject C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_VERBOSE)
 
+include_directories(src)
+
 add_definitions(-O2)
 add_definitions(-m64)
 add_definitions(-fPIC)
@@ -44,8 +46,6 @@ elseif(CMAKE_C_COMPILER_ID STREQUAL "AppleClang")
 #    #pthread-w32 issue, timespec is now part of time.h
 #    ADD_DEFINITIONS(-D_TIMESPEC_DEFINED)
 endif()
-
-include_directories(src)
 
 add_library(dsd_inject SHARED
         src/utils.h

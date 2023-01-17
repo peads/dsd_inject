@@ -19,8 +19,8 @@
 //
 #include "inject.h"
 
-#define INSERT_STATEMENT    "INSERT INTO imbedata (date_decoded, data) VALUES (?, ?);"
-#define INSERT_ERROR        "INSERT INTO imbedata (date_decoded, data) " \
+#define INSERT_STATEMENT    "INSERT INTO imbedata (date_recorded, data) VALUES (?, ?);"
+#define INSERT_INFO        "INSERT INTO imbedata (date_recorded, data) " \
                             "VALUES (%zu, (data of size: %zu));"
 extern const char *db_pass;
 extern const char *db_host;

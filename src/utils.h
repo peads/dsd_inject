@@ -78,8 +78,8 @@ MYSQL *initializeMySqlConnection(MYSQL_BIND *bind);
 
 MYSQL_TIME *generateMySqlTime(const time_t *t);
 
-MYSQL_STMT *generateMySqlStatment(char *statement, MYSQL *conn, int *status, long size);
+MYSQL_TIME *generateMySqlTimeFromTm(const struct tm *timeinfo);
 
-void writeToDatabase(void *buf, size_t nbyte);
+MYSQL_STMT *generateMySqlStatment(char *statement, MYSQL *conn, int *status, long size);
 
 #endif //UTILS_H
