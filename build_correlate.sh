@@ -20,5 +20,5 @@ elif [[ $OSTYPE == 'linux'* ]]; then
 fi
 
 gcc -Werror -Wno-deprecated-declarations -Wall -Wextra -O2 -m64 -ldl $(mysql_config --cflags) \
-  $DSD_INJECT_SRC/src/utils.c $DSD_INJECT_SRC/src/correlate_frequencies.c -o $PWD/correlate_frequencies\
+  $PWD/src/utils.c $PWD/src/correlate_frequencies.c -o $PWD/correlate_frequencies\
   $(mysql_config --libs) -lz -pthread $R_T -DTRACE
