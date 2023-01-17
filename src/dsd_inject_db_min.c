@@ -19,10 +19,35 @@
 //
 #include "inject.h"
 
+#define MAX_SQL_ERROR_ARGS 2
+
 extern const char *db_pass;
 extern const char *db_host;
 extern const char *db_user;
 extern const char *schema;
+
+void doExitStatement(MYSQL *conn, ...) {
+    va_list ptr;
+    va_start(ptr, conn);
+    int max = va_arg(ptr, int);
+
+    if (max != MAX_SQL_ERROR_ARGS) {
+        fprintf(stderr,
+                "WARNING: Incorrect number of variadic parameters passed to correlate_frequency::doExitStatement\n"
+                "Expected: %d Got: %d", MAX_SQL_ERROR_ARGS, max);
+    } else {
+        int i = 0;
+        time_t date;
+        size_t size;
+
+        for (; i < max; ++i) {
+            date = *va_arg(ptr, time_t*);
+            size = *va_arg(ptr, size_t*);
+        }
+        fprintf(stderr, INSERT_ERROR, date, size);
+    }
+    doExit(conn);
+}
 
 void writeToDatabase(const void *buf, size_t nbyte) {
 

@@ -34,7 +34,26 @@
 #define INSERT_ERROR        "INSERT INTO frequencydata (frequency) " \
                             "VALUES (%f);"
 #define MAX_BUF_SIZE 42
+#define MAX_SQL_ERROR_ARGS 1
 static int isRunning = 0;
+
+void doExitStatement(MYSQL *conn, ...) {
+
+    va_list ptr;
+    va_start(ptr, conn);
+    int max = va_arg(ptr, int);
+
+    if (max != MAX_SQL_ERROR_ARGS) {
+        fprintf(stderr,
+                "WARNING: Incorrect number of variadic parameters passed to correlate_frequency::doExitStatement\n"
+                "Expected: %d Got: %d", MAX_SQL_ERROR_ARGS, max);
+    }else{
+        const float frequency = *va_arg(ptr, float*);
+
+        fprintf(stderr, INSERT_ERROR, frequency);
+    }
+    doExit(conn);
+}
 
 void writeToDatabase(const void *buf, size_t nbyte) {
 
@@ -49,7 +68,7 @@ void writeToDatabase(const void *buf, size_t nbyte) {
 
     stmt = generateMySqlStatment(conn, &status);
     if (status != 0) {
-        doExitStatement(conn, startTime, nbyte);
+        doExitStatement(conn, buf);
     }
 
     bind[0].buffer_type = MYSQL_TYPE_DECIMAL;
