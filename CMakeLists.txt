@@ -19,31 +19,31 @@ project(dsd_inject C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_VERBOSE)
 
-include_directories(src)
-
 add_definitions(-O2)
 add_definitions(-m64)
 add_definitions(-fPIC)
 add_definitions(-pthread)
+ADD_DEFINITIONS(-Werror)
 ADD_DEFINITIONS(-Wno-deprecated-declarations)
+ADD_DEFINITIONS(-Wall)
+ADD_DEFINITIONS(-Wextra)
 
 if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
     add_definitions(-lmariadb)
-    ADD_DEFINITIONS(-Werror)
-    ADD_DEFINITIONS(-Wall)
-    ADD_DEFINITIONS(-Wextra)
     add_definitions(-lrt)
     add_definitions(-fno-stack-protector -fno-stack-clash-protection)
     #http://gcc.gnu.org/wiki/Visibility
     add_definitions(-fvisibility=hidden)
     include_directories(/usr/include/mariadb /usr/include/mariadb/mysql)
 elseif(CMAKE_C_COMPILER_ID STREQUAL "AppleClang")
-    include_directories(/usr/local/Cellar/mysql/8.0.31/include/mysql)
     add_definitions(-lmysqlclient)
+    include_directories(/usr/local/Cellar/mysql/8.0.31/include/mysql)
 #elseif(MSVC14 OR MSVC14)
 #    #pthread-w32 issue, timespec is now part of time.h
 #    ADD_DEFINITIONS(-D_TIMESPEC_DEFINED)
 endif()
+
+include_directories(src)
 
 add_library(dsd_inject SHARED
         src/dsd_inject_db_min.c

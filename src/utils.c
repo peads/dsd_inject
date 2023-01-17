@@ -25,6 +25,11 @@ const char *db_host;
 const char *db_user;
 const char *schema;
 
+void doExitStatement(MYSQL *conn, time_t date, size_t size) {
+    fprintf(stderr, INSERT_ERROR, date, size);
+    doExit(conn);
+}
+
 void doExit(MYSQL *con) {
 
     fprintf(stderr, "MY_SQL error: %s\n", mysql_error(con));

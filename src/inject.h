@@ -54,8 +54,8 @@
 
 #define LENGTH_OF(arr) (sizeof(arr) / sizeof(*(arr)))
 #define INSERT_STATEMENT    "INSERT INTO imbedata (date_decoded, data) VALUES (?, ?);"
-#define INSERT_ERROR        "INSERT INTO imbedata (date_decoded, data, date_inserted) " \
-                            "VALUES (%s, (data of size: %zu), tbd);"
+#define INSERT_ERROR        "INSERT INTO imbedata (date_decoded, data) " \
+                            "VALUES (%zu, (data of size: %zu));"
 
 struct thread_args {
     void *buf;
@@ -73,6 +73,7 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset);
 
 /* util functions */
 void doExit(MYSQL *con);
+void doExitStatement(MYSQL *conn, time_t date, size_t size);
 void onSignal(int sig);
 void initializeSignalHandlers();
 char *getEnvVarOrDefault(char *name, char *def);
@@ -83,5 +84,3 @@ MYSQL_TIME *generateMySqlTime(const time_t *t);
 MYSQL_STMT *generateMySqlStatment(MYSQL *conn, int *status);
 
 #endif //INJECT_H
-
-

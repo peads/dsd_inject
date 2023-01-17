@@ -39,6 +39,9 @@ void writeToDatabase(const void *buf, size_t nbyte) {
     conn = initializeMySqlConnection(bind);
 
     stmt = generateMySqlStatment(conn, &status);
+    if (status != 0) {
+        doExitStatement(conn, startTime, nbyte);
+    }
 
     bind[0].buffer_type = MYSQL_TYPE_DATETIME;
     bind[0].buffer = (char *) dateDecoded;
@@ -52,7 +55,13 @@ void writeToDatabase(const void *buf, size_t nbyte) {
     bind[1].is_null = 0;
 
     status = mysql_stmt_bind_param(stmt, bind);
+    if (status != 0) {
+        doExitStatement(conn, startTime, nbyte);
+    }
     status = mysql_stmt_execute(stmt);
+    if (status != 0) {
+        doExitStatement(conn, startTime, nbyte);
+    }
 
     mysql_stmt_close(stmt);
     mysql_close(conn);
