@@ -46,6 +46,11 @@ endif()
 include_directories(src)
 
 add_library(dsd_inject SHARED
-        src/dsd_inject_db_min.c
+        src/utils.h
+        src/utils.c
         src/inject.h
-        src/utils.c)
+        src/dsd_inject_db_min.c)
+add_executable(correlate_frequencies
+        src/utils.h
+        src/utils.c
+        src/correlate_frequencies.c)

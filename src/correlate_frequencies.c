@@ -15,14 +15,15 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 //
-// Created by Patrick Eads on 1/11/23.
+// Created by Patrick Eads on 1/16/23.
 //
-#include "inject.h"
+#include <fcntl.h>
+#include <termios.h>
+#include <unistd.h>
+#include "utils.h"
 
-extern const char *db_pass;
-extern const char *db_host;
-extern const char *db_user;
-extern const char *schema;
+#define BUF_SIZE 42
+static int isRunning = 0;
 
 void writeToDatabase(const void *buf, size_t nbyte) {
 
@@ -70,51 +71,33 @@ void writeToDatabase(const void *buf, size_t nbyte) {
 }
 
 void *run(void *ctx) {
-
+    static char *portname = "$PWD/db-out";
     struct thread_args *args = (struct thread_args *) ctx;
-
-    writeToDatabase(args->buf, args->nbyte);
-
-    sem_post(&sem);
-
-    free(args->buf);
+    const pthread_t pid = args->pid;
     free(ctx);
 
-    pthread_exit(&args->pid);
-}
+    while (isRunning) {
+        int fd = open(portname, O_RDONLY | O_NOCTTY | O_SYNC);
+        char buf[BUF_SIZE];
 
-ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
-
-    if (NULL == next_write) {
-        initializeEnv();
-        initializeSignalHandlers();
-
-        fprintf(stderr, "%s", "wrapping write\n");
-        next_write = dlsym(RTLD_NEXT, "write");
-        const char *msg = dlerror();
-
-        fprintf(stderr, "%s", "setting atexit\n");
-        atexit(onExit);
-
-        if (msg != NULL) {
-            fprintf(stderr, "\nwrite: dlwrite failed: %s::Exiting\n", msg);
-            exit(-1);
-        } else {
-            fprintf(stderr, "%s",
-                    "\nwrite: wrapping done\nwrapped with " INSERT_STATEMENT"\n");
-        }
+        int n = read(fd, buf, sizeof buf);
+        writeToDatabase(buf, BUF_SIZE);
     }
 
+    pthread_exit(pid);
+}
+
+int main(void) {
     pthread_t pid = 0;
     struct thread_args *args = malloc(sizeof(struct thread_args));
-    args->buf = malloc(nbyte * sizeof(char));
-    args->nbyte = nbyte;
+//    args->buf = malloc(BUF_SIZE * sizeof(char));
+//    args->nbyte = BUF_SIZE;
     args->pid = pid;
 
-    memcpy((char *) args->buf, buf, nbyte);
+//    memcpy((char *) args->buf, buf, nbyte);
 
     pthread_create(&args->pid, NULL, run, (void *) args);
     pthread_detach(pid);
 
-    return next_write(fildes, buf, nbyte, offset);
+    isRunning = 1;
 }
