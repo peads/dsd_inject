@@ -20,6 +20,6 @@ awk -F', ' 'BEGIN{OFS=" "}
 { gsub(/ rms/,""); gsub(/ avg/,""); gsub(/ squelch/,"") }
 {
     if ($3>=$6) {
-        print $1, substr($2, 1, 3)"."substr($2, 4, 3) | "tee $PWD/db-in;
+        print $1, substr($2, 1, 3)"."substr($2, 4, 3) | "tee $PWD/db-in"
     }
 }'

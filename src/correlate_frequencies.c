@@ -109,7 +109,7 @@ void *run(void *ctx) {
     int nbyte = 0;
     OUTPUT_DEBUG_STDERR(stderr, "Opening file: %s", portname);
     int fd = open(portname, O_RDONLY | O_NOCTTY | O_SYNC);
-
+    
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Freeing args");
     free(ctx);
 
@@ -121,7 +121,13 @@ void *run(void *ctx) {
 
         OUTPUT_DEBUG_STDERR(stderr, "%s", "Reading tty");
         nbyte = read(fd, buf, MAX_BUF_SIZE);
-        OUTPUT_DEBUG_STDERR(stderr, "frequency: %f size: %d", (float) *buf, nbyte);
+        if (nbyte > 0) {
+            char *token = strtok(buf, " ");
+            OUTPUT_DEBUG_STDERR(stderr, "data: %s", (char *) token);
+            
+            token = strtok(NULL, " ");
+            OUTPUT_DEBUG_STDERR(stderr, "data: %f", atof((char *) token));
+        }
 //        if (nbyte > 0) writeToDatabase(buf, nbyte);
     }
 
@@ -155,7 +161,7 @@ int main(int argc, char *argv[]) {
         OUTPUT_DEBUG_STDERR(stderr, "%s", "Setting exit");
         atexit(onExit);
 
-        memcpy((char *) args->buf, (void *) &argv[1], sizeof(args[1]));
+        memcpy((char *) args->buf, (void *) argv[1], sizeof(args[1]));
 
 
         pthread_create(&pid, NULL, run, (void *) args);
