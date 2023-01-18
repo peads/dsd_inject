@@ -123,39 +123,10 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
     mysql_stmt_close(stmt);
     
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Generating prepared statement");
-    //OUTPUT_INFO_STDERR(stderr, UPDATE_INFO, dateDemod, frequency, dateDemod);
-    //mysql_stmt_reset(stmt);
     stmt = generateMySqlStatment(UPDATE_STATEMENT, conn, &status, 145);
     
     MYSQL_BIND bnd[3];
     memset(bnd, 0, sizeof(bnd));
-
-    //OUTPUT_DEBUG_STDERR(stderr, "%d-%d-%dT%d:%d:%d", 
-    //    timeinfo->tm_year + 1900,
-    //    timeinfo->tm_mon + 1,
-    //    timeinfo->tm_mday,
-    //    timeinfo->tm_hour,
-    //    timeinfo->tm_min,
-    //    timeinfo->tm_sec);
-    OUTPUT_DEBUG_STDERR(stderr, "%d-%d-%dT%d:%d:%d",
-        dateDemod->year,
-        dateDemod->month,
-        dateDemod->day,
-        dateDemod->hour,
-        dateDemod->minute,
-        dateDemod->second); 
-
-    //bnd[1].buffer_type = MYSQL_TYPE_DECIMAL;
-    //bnd[1].buffer = (char *) &frequency;
-    //bnd[1].buffer_length = nbyte;
-    //bnd[1].length = &nbyte;
-    //bnd[1].is_null = 0;
-    //
-    //bnd[2].buffer_type = MYSQL_TYPE_DATETIME;
-    //bnd[2].buffer = (char *) dateDemod;
-    //bnd[2].length = 0;
-    //bnd[2].is_null = 0;
-    
     memcpy(&bnd[0], &dateDemodBind, sizeof(dateDemodBind));
     memcpy(&bnd[1], &frequencyBind, sizeof(frequencyBind));
     memcpy(&bnd[2], &dateDemodBind, sizeof(dateDemodBind));
@@ -176,7 +147,7 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing statement");
     mysql_stmt_close(stmt);
-    OUTPUT_INFO_STDERR(stderr, "Rows affected: %llu", mysql_stmt_affected_rows(stmt)); 
+    OUTPUT_INFO_STDERR(stderr, "Rows affected: %llu", mysql_stmt_affected_rows(stmt));
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Committing transaction");
     mysql_commit(conn);
@@ -204,6 +175,7 @@ void *run(void *ctx) {
         writeUpdateDatabase(frequency, 8, date);
     }
 
+    sem_post(&sem);
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Thread ending");
     pthread_exit(&pid);
 }
