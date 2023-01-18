@@ -36,7 +36,8 @@
 
 static int isRunning = 0;
 sem_t sem;
-int fd; 
+int fd;
+int countThreads = 0; 
 
 void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
     struct tm *timeinfo = malloc(sizeof(*timeinfo));
@@ -142,7 +143,11 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
     free(month);
 }
 
+static time_t previousTime = -1;
+
 void *run(void *ctx) {
+    time_t currentTime = time(NULL);
+
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Fetching args");
     struct thread_args *args = (struct thread_args *)ctx;
     char *token = strtok(args->buf, ";");
@@ -159,15 +164,18 @@ void *run(void *ctx) {
     pthread_t pid = args->pid;  
     OUTPUT_DEBUG_STDERR(stderr,"Write thread spawned, pid: %ld", *(long *) pid);
 
-    if (frequency != NULL && atof(frequency) > 0.0) {
-        OUTPUT_DEBUG_STDERR(stderr,"date: %s", date);
-        OUTPUT_DEBUG_STDERR(stderr,"freq: %s", frequency);
-        sem_wait(&sem);
-        writeUpdateDatabase(frequency, 8, date);
-        sem_post(&sem);
+    if (previousTime == -1 || previousTime != currentTime) {
+        if (frequency != NULL && atof(frequency) > 0.0) {
+            OUTPUT_DEBUG_STDERR(stderr,"date: %s", date);
+            OUTPUT_DEBUG_STDERR(stderr,"freq: %s", frequency);
+            sem_wait(&sem);
+            writeUpdateDatabase(frequency, 8, date);
+            sem_post(&sem);
+        }
     }
-    
+   
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Thread ending");
+    countThreads--;
     pthread_exit(&pid);
 }
 
@@ -214,6 +222,8 @@ int main(int argc, char *argv[]) {
 
         args->buf = buf;
         args->nbyte = nbyte;
+
+        OUTPUT_INFO_STDERR(stderr, "Threads currently processing: %d", ++countThreads);
         pthread_create(&pid, NULL, run, (void *) args);
         args->pid = pid;
         pthread_detach(pid);
