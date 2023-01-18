@@ -33,8 +33,11 @@
 #define LOCK_STATEMENT      "select * from `imbedata` where `date_recorded`=? for update"
 #define MAX_BUF_SIZE 34
 #define MAX_SQL_ERROR_ARGS 1
+
 static int isRunning = 0;
 sem_t sem;
+int fd; 
+
 void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
     struct tm *timeinfo = malloc(sizeof(*timeinfo));
 
@@ -170,6 +173,7 @@ void *run(void *ctx) {
 
 void onExit(void) {
     isRunning = 0;
+    close(fd);
     onExitSuper();
 }
 
@@ -189,7 +193,7 @@ int main(int argc, char *argv[]) {
         atexit(onExit);
  
         sem_close(&sem);
-        sem_init(&sem, 0, 1);
+        sem_init(&sem, 0, 2);
     }
 
     struct thread_args *args = malloc(sizeof(struct thread_args));
@@ -197,7 +201,7 @@ int main(int argc, char *argv[]) {
     char *portname = argv[1];
 
     OUTPUT_DEBUG_STDERR(stderr, "Opening file: %s", portname);
-    int fd = open(portname, O_RDONLY | O_NOCTTY | O_SYNC);
+    fd = open(portname, O_RDONLY | O_NOCTTY | O_SYNC);
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering main loop");
     while (isRunning && nbyte >= 0) {
@@ -215,5 +219,4 @@ int main(int argc, char *argv[]) {
         pthread_detach(pid);
         OUTPUT_DEBUG_STDERR(stderr, "Spawning write thread, pid: %ld", *(long *) pid);
     }
-    close(fd);
 }
