@@ -25,11 +25,10 @@
 
 #define INSERT_STATEMENT    "insert into frequencydata (`frequency`) " \
                             "values (?) on duplicate key update `date_modified`=NOW();"
-#define INSERT_INFO        "INSERT INTO frequencydata (frequency) " \
+#define INSERT_INFO         "INSERT INTO frequencydata (frequency) " \
                             "VALUES (%s);"
-#define UPDATE_STATEMENT    "update imbedata set (`date_recorded`, `frequency`) values (?, ?) " \
-                            "where `date_recorded`=?;"
-#define UPDATE_INFO         "update imbedata set (date_recorded, frequency) values (%s, %s) " \
+#define UPDATE_STATEMENT    "update `imbedata` set `date_decoded`=?, `frequency`=? where `date_recorded`=?;"
+#define UPDATE_INFO         "update imbedata set (date_decoded, frequency) values (%s, %s) " \
                             "where date_recorded=%s;"
 #define MAX_BUF_SIZE 34
 #define MAX_SQL_ERROR_ARGS 1
@@ -43,8 +42,7 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
     frequency[nbyte - 1] = '\0';
 
     struct tm *timeinfo = malloc(sizeof(*timeinfo));
-    //strptime(date, "%Y-%m-%dT%H:%M:%S%:z", &timeinfo);
-    //2023-01-18T03:10:41+00:00;155.685
+
     int *year = malloc(sizeof(int*));
     int *month = malloc(sizeof(int*));
 
@@ -53,6 +51,7 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
     
     timeinfo->tm_year = *year - 1900;
     timeinfo->tm_mon = *month - 1;
+    
     MYSQL_TIME *dateDemod = generateMySqlTimeFromTm(timeinfo);
 
     int status;
@@ -89,33 +88,53 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
     if (status != 0) {
         doExit(conn);
     }
-
-    stmt = generateMySqlStatment(UPDATE_STATEMENT, conn, &status, 145);
-
+    OUTPUT_INFO_STDERR(stderr, "Rows affected: %llu", mysql_stmt_affected_rows(stmt)); 
+    
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing statement");
     mysql_stmt_close(stmt);
-
+    
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Generating prepared statement");
+    //OUTPUT_INFO_STDERR(stderr, UPDATE_INFO, dateDemod, frequency, dateDemod);
+    stmt = generateMySqlStatment(UPDATE_STATEMENT, conn, &status, 145);
+    
     MYSQL_BIND bnd[3];
+    memset(bnd, 0, sizeof(bnd));
 
-    OUTPUT_DEBUG_STDERR(stderr, "%d-%d-%dT%d:%d:%d", timeinfo->tm_year + 1900,
-        timeinfo->tm_mon + 1,
-        timeinfo->tm_mday,
-        timeinfo->tm_hour,
-        timeinfo->tm_min,
-        timeinfo->tm_sec);
-
+    //OUTPUT_DEBUG_STDERR(stderr, "%d-%d-%dT%d:%d:%d", 
+    //    timeinfo->tm_year + 1900,
+    //    timeinfo->tm_mon + 1,
+    //    timeinfo->tm_mday,
+    //    timeinfo->tm_hour,
+    //    timeinfo->tm_min,
+    //    timeinfo->tm_sec);
+    OUTPUT_DEBUG_STDERR(stderr, "%d-%d-%dT%d:%d:%d",
+        dateDemod->year,
+        dateDemod->month,
+        dateDemod->day,
+        dateDemod->hour,
+        dateDemod->minute,
+        dateDemod->second); 
     bnd[0].buffer_type = MYSQL_TYPE_DATETIME;
     bnd[0].buffer = (char *) dateDemod;
     bnd[0].length = 0;
     bnd[0].is_null = 0;
 
-    memcpy(&bnd[2], &bnd[0], sizeof(*bind));
-    memcpy(&bnd[1], &bind[0], sizeof(*bind));
-
-    stmt = generateMySqlStatment(UPDATE_STATEMENT, conn, &status, 145);
+    //bnd[1].buffer_type = MYSQL_TYPE_DECIMAL;
+    //bnd[1].buffer = (char *) &frequency;
+    //bnd[1].buffer_length = nbyte;
+    //bnd[1].length = &nbyte;
+    //bnd[1].is_null = 0;
+    //
+    //bnd[2].buffer_type = MYSQL_TYPE_DATETIME;
+    //bnd[2].buffer = (char *) dateDemod;
+    //bnd[2].length = 0;
+    //bnd[2].is_null = 0;
+    
+    memcpy(&bnd[1], &bind[0], sizeof(bind[0]));
+    memcpy(&bnd[2], &bnd[0], sizeof(bnd[0]));
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Binding parameters");
-    status = mysql_stmt_bind_param(stmt, bind);
+    status = mysql_stmt_bind_param(stmt, bnd);
     if (status != 0) {
         doExit(conn);
     }
@@ -128,8 +147,13 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing statement");
     mysql_stmt_close(stmt);
+    OUTPUT_INFO_STDERR(stderr, "Rows affected: %llu", mysql_stmt_affected_rows(stmt)); 
+
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing database connection");
     mysql_close(conn);
+    
+    free(year);
+    free(month);
 }
 
 void *run(void *ctx) {
