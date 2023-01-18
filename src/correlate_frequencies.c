@@ -46,43 +46,45 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
     
     timeinfo->tm_year = *year - 1900;
     timeinfo->tm_mon = *month - 1;
+    timeinfo->tm_isdst = 0;
     
     int status;
+    MYSQL_STMT *stmt;
     MYSQL_TIME *dateDemod = generateMySqlTimeFromTm(timeinfo); 
     MYSQL_BIND dateDemodBind;
     MYSQL_BIND frequencyBind;
     MYSQL_BIND bind[1];
     memset(&dateDemodBind, 0, sizeof(dateDemodBind)); 
-    memset(&frequencyBind, 0, sizeof(frequencyBind)); 
+    memset(&frequencyBind, 0, sizeof(frequencyBind));  
     
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "Initializing db connection");
-    MYSQL *conn = initializeMySqlConnection(bind);
-    
-    mysql_real_query(conn, "BEGIN", 6);
-    MYSQL_STMT *stmt = generateMySqlStatment(LOCK_STATEMENT, conn, &status, 60);
-    if (status != 0) {
-        doExit(conn);
-    }
- 
     dateDemodBind.buffer_type = MYSQL_TYPE_DATETIME;
     dateDemodBind.buffer = (char *) dateDemod;
     dateDemodBind.length = 0;
     dateDemodBind.is_null = 0;
 
     memcpy(&bind[0], &dateDemodBind, sizeof(dateDemodBind));  
-
-    status = mysql_stmt_bind_param(stmt, bind);
-    if (status != 0) {
-        doExit(conn);
-    }
-
-    status = mysql_stmt_execute(stmt);
-    if (status != 0) {
-        doExit(conn);
-    }
     
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing statement");
-    mysql_stmt_close(stmt);
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Initializing db connection");
+    MYSQL *conn = initializeMySqlConnection(bind);
+    
+    //mysql_real_query(conn, "BEGIN", 6);
+    //MYSQL_STMT *stmt = generateMySqlStatment(LOCK_STATEMENT, conn, &status, 60);
+    //if (status != 0) {
+    //    doExit(conn);
+    //}
+
+    //status = mysql_stmt_bind_param(stmt, bind);
+    //if (status != 0) {
+    //    doExit(conn);
+    //}
+
+    //status = mysql_stmt_execute(stmt);
+    //if (status != 0) {
+    //    doExit(conn);
+    //}
+
+    //OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing statement");
+    //mysql_stmt_close(stmt);
     
     char frequency[nbyte];
     strncpy(frequency, freq, nbyte);
@@ -150,8 +152,8 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
     mysql_stmt_close(stmt);
 
 
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "Committing transaction");
-    mysql_commit(conn);
+    //OUTPUT_DEBUG_STDERR(stderr, "%s", "Committing transaction");
+    //mysql_commit(conn);
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing database connection");
     mysql_close(conn);
@@ -208,6 +210,9 @@ int main(int argc, char *argv[]) {
 
         OUTPUT_DEBUG_STDERR(stderr, "%s", "Setting atexit");
         atexit(onExit);
+ 
+        sem_close(&sem);
+        sem_init(&sem, 0, 1);
     }
 
     struct thread_args *args = malloc(sizeof(struct thread_args));
