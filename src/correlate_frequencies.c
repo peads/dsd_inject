@@ -21,31 +21,23 @@
 #include <termios.h>
 #include <unistd.h>
 #include "utils.h"
-#define __USE_XOPEN
-#include <time.h>
 
 #define INSERT_STATEMENT    "insert into frequencydata (`frequency`) " \
                             "values (?) on duplicate key update `date_modified`=NOW();"
-#define INSERT_INFO        "INSERT INTO frequencydata (frequency) " \
+#define INSERT_ERROR        "INSERT INTO frequencydata (frequency) " \
                             "VALUES (%s);"
-#define UPDATE_STATEMENT    "update imbedata set (`date_decoded`, `frequency`) values (?, ?) " \
-                            "where `date_recorded`=?;"
-#define UPDATE_INFO         "update imbedata set (date_decoded, frequency) values (%s, %s) " \
-                            "where date_recorded=%s;"
 #define MAX_BUF_SIZE 34
 #define MAX_SQL_ERROR_ARGS 1
 static int isRunning = 0;
 
-void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
+void writeToDatabase(void *buf, size_t nbyte) {
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering correlate_frequencies::writeToDatabase");
-
+    
+    //char *frequency = ((char *) buf);
+    
     char frequency[nbyte];
-    strncpy(frequency, freq, nbyte);
+    strncpy(frequency, buf, nbyte);
     frequency[nbyte - 1] = '\0';
-
-    struct tm timeinfo;
-    strptime(date, "%Y-%m-%dT%H:%M:%S%:z", &timeinfo);
-    MYSQL_TIME *dateDemod = generateMySqlTimeFromTm(&timeinfo);
 
     int status;
 
@@ -58,7 +50,7 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
     conn = initializeMySqlConnection(bind);
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Generating prepared statement");
-    OUTPUT_INFO_STDERR(stderr, INSERT_INFO, frequency);
+    OUTPUT_INFO_STDERR(stderr, INSERT_ERROR, frequency);
     stmt = generateMySqlStatment(INSERT_STATEMENT, conn, &status, 96);
     if (status != 0) {
         doExit(conn);
@@ -82,37 +74,12 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
         doExit(conn);
     }
 
-    stmt = generateMySqlStatment(UPDATE_STATEMENT, conn, &status, 145);
-
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing statement");
-    mysql_stmt_close(stmt);
-
-    MYSQL_BIND bnd[3];
-
-    bnd[0].buffer_type = MYSQL_TYPE_DATETIME;
-    bnd[0].buffer = (char *) dateDemod;
-    bnd[0].length = 0;
-    bnd[0].is_null = 0;
-
-    memcpy(&bnd[2], &bnd[0], sizeof(struct MYSQL_BIND));
-    memcpy(&bnd[1], &bind[0], sizeof(struct MYSQL_BIND));
-
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "Binding parameters");
-    status = mysql_stmt_bind_param(stmt, bind);
-    if (status != 0) {
-        doExit(conn);
-    }
-
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "Executing prepared statement");
-    status = mysql_stmt_execute(stmt);
-    if (status != 0) {
-        doExit(conn);
-    }
-
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing statement");
     mysql_stmt_close(stmt);
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing database connection");
     mysql_close(conn);
+
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering correlate_frequencies::writeToDatabase");
 }
 
 void *run(void *ctx) {
@@ -122,7 +89,7 @@ void *run(void *ctx) {
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Fetching args");
     pthread_t pid = args->pid;
-    ssize_t nbyte = 0;
+    int nbyte = 0;
     OUTPUT_DEBUG_STDERR(stderr, "Opening file: %s", portname);
     int fd = open(portname, O_RDONLY | O_NOCTTY | O_SYNC);
     
@@ -148,7 +115,7 @@ void *run(void *ctx) {
         if (freq > 0.0) {
             OUTPUT_DEBUG_STDERR(stderr,"date: %s", date);
             OUTPUT_DEBUG_STDERR(stderr,"freq: %f", freq);
-            writeUpdateDatabase(token, 8, date);
+            writeToDatabase(token, 8);
         }
     }
 

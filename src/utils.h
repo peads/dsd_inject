@@ -26,6 +26,7 @@
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <string.h>
 #include <pthread.h>
 #include <errno.h>
@@ -77,8 +78,8 @@ MYSQL *initializeMySqlConnection(MYSQL_BIND *bind);
 
 MYSQL_TIME *generateMySqlTime(const time_t *t);
 
-MYSQL_TIME *generateMySqlTimeFromTm(const struct tm *timeinfo);
-
 MYSQL_STMT *generateMySqlStatment(char *statement, MYSQL *conn, int *status, long size);
+
+void writeToDatabase(void *buf, size_t nbyte);
 
 #endif //UTILS_H
