@@ -35,7 +35,7 @@ void doExit(MYSQL *con) {
 }
 
 void initializeEnv() {
-    sem_init(&sem, 0, 10);
+    sem_init(&sem, 0, 128);
 
     db_pass = getenv("DB_PASS");
     if (db_pass) {
@@ -52,7 +52,7 @@ void onExitSuper(void) {
 
     int status;
 
-    if ((status = sem_unlink("resources")) != 0) {
+    if ((status = sem_close(&sem)) != 0) {
         fprintf(stderr, "unable to unlink semaphore. status: %s\n", strerror(status));
     } else {
         fprintf(stderr, "%s", "semaphore destroyed\n");

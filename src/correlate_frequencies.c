@@ -161,7 +161,6 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
 }
 
 void *run(void *ctx) {
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "Read thread spawned");
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Fetching args");
     struct thread_args *args = (struct thread_args *)ctx;
     char *token = strtok(args->buf, ";");
@@ -176,8 +175,7 @@ void *run(void *ctx) {
     strcpy(frequency, (char *) token);
 
     pthread_t pid = args->pid;  
-
-    
+    OUTPUT_DEBUG_STDERR(stderr,"Write thread spawned, pid: %ld", *(long *) pid);
 
     if (frequency != NULL && atof(frequency) > 0.0) {
         OUTPUT_DEBUG_STDERR(stderr,"date: %s", date);
@@ -212,7 +210,6 @@ int main(int argc, char *argv[]) {
         atexit(onExit);
     }
 
-    pthread_t pid = 0;
     struct thread_args *args = malloc(sizeof(struct thread_args));
     ssize_t nbyte = 0;
     char *portname = argv[1];
@@ -222,7 +219,7 @@ int main(int argc, char *argv[]) {
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering main loop");
     while (isRunning && nbyte >= 0) {
-
+        pthread_t pid = 0;
         char buf[MAX_BUF_SIZE];
 
         OUTPUT_DEBUG_STDERR(stderr, "%s", "Reading file");
@@ -234,7 +231,7 @@ int main(int argc, char *argv[]) {
         pthread_create(&pid, NULL, run, (void *) args);
         args->pid = pid;
         pthread_detach(pid);
-        OUTPUT_DEBUG_STDERR(stderr, "Spawning read thread pid: %ld", *(long *) pid);
+        OUTPUT_DEBUG_STDERR(stderr, "Spawning write thread, pid: %ld", *(long *) pid);
     }
     close(fd);
 }
