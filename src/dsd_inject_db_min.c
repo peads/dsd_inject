@@ -17,6 +17,7 @@
 //
 // Created by Patrick Eads on 1/11/23.
 //
+#define SEM_RESOURCES 128
 #include "inject.h"
 
 #define INSERT_STATEMENT    "INSERT INTO imbedata (date_recorded, data) VALUES (?, ?);"

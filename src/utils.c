@@ -20,8 +20,6 @@
 
 #include "utils.h"
 
-#define SEM_RESOURCES 12
-
 const char *db_pass;
 const char *db_host;
 const char *db_user;
@@ -38,7 +36,8 @@ void doExit(MYSQL *con) {
 
 void initializeEnv() {
     sem_init(&sem, 0, SEM_RESOURCES);
-
+    fprintf(stderr, "Semaphore resources: %d", SEM_RESOURCES);
+    
     db_pass = getenv("DB_PASS");
     if (db_pass) {
         db_host = getEnvVarOrDefault("DB_HOST", "127.0.0.1");

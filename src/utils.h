@@ -32,6 +32,10 @@
 #include <errno.h>
 #include <semaphore.h>
 
+#ifndef SEM_RESOURCES
+#define SEM_RESOURCES 8
+#endif
+
 #if defined(__USE_XOPEN_EXTENDED) || defined(__USE_MISC)
 #undef __USE_MISC
 #undef __USE_XOPEN_EXTENDED
