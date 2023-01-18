@@ -18,17 +18,12 @@
 // Created by Patrick Eads on 1/15/23.
 //
 
-#include "inject.h"
+#include "utils.h"
 
 const char *db_pass;
 const char *db_host;
 const char *db_user;
 const char *schema;
-
-void doExitStatement(MYSQL *conn, time_t date, size_t size) {
-    fprintf(stderr, INSERT_ERROR, date, size);
-    doExit(conn);
-}
 
 void doExit(MYSQL *con) {
 
@@ -53,10 +48,9 @@ void initializeEnv() {
     }
 }
 
-void onExit(void) {
+void onExitSuper(void) {
 
     int status;
-    next_write = NULL;
 
     if ((status = sem_unlink("resources")) != 0) {
         fprintf(stderr, "unable to unlink semaphore. status: %s\n", strerror(status));
@@ -139,13 +133,9 @@ MYSQL *initializeMySqlConnection(MYSQL_BIND *bind) {
     return conn;
 }
 
-MYSQL_TIME *generateMySqlTime(const time_t *t) {
+MYSQL_TIME *generateMySqlTimeFromTm(const struct tm *timeinfo) {
 
-    struct tm *timeinfo;
-    MYSQL_TIME *dateDecoded;
-
-    timeinfo = localtime(t);
-    dateDecoded = malloc(sizeof(*dateDecoded));
+    MYSQL_TIME *dateDecoded = malloc(sizeof(*dateDecoded));
 
     dateDecoded->year = timeinfo->tm_year + 1900; // struct tm stores year as years since 1900
     dateDecoded->month = timeinfo->tm_mon + 1; // struct tm stores month as months since January (0-11)
@@ -157,13 +147,19 @@ MYSQL_TIME *generateMySqlTime(const time_t *t) {
     return dateDecoded;
 }
 
-MYSQL_STMT *generateMySqlStatment(MYSQL *conn, int *status) {
+MYSQL_TIME *generateMySqlTime(const time_t *t) {
+
+    struct tm *timeinfo;
+    timeinfo = localtime(t);
+
+    return generateMySqlTimeFromTm(timeinfo);
+}
+
+MYSQL_STMT *generateMySqlStatment(char *statement, MYSQL *conn, int *status, long size) {
 
     MYSQL_STMT *stmt;
 
     stmt = mysql_stmt_init(conn);
-    *status = mysql_stmt_prepare(stmt,
-                                 INSERT_STATEMENT,
-                                 LENGTH_OF(INSERT_STATEMENT));
+    *status = mysql_stmt_prepare(stmt,statement,size);
     return stmt;
 }

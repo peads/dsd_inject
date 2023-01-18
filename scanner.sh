@@ -21,6 +21,8 @@ sleep 1
 #REALLY REALLY make sure they're dead
 killall -s SIGKILL socat
 killall -s SIGKILL dsd
+killall -s SIGKILL rtl_fm
+sleep 1
 
 #start the show
 rm -f $PWD/*-in $PWD/*-out
@@ -34,8 +36,10 @@ sox -t raw -r 12.5k -v 1 -es -b16 -L -c1 - -b16 -es -c1 -r 48000 -L -t raw - | \
 socat -d -d -u - tcp-listen:1234,reuseaddr,fork'
 
 #create sox to dsd plumbing via socat
-screen -d -m -S dsd bash --noprofile --norc  -c 'socat -d -d tcp-connect:localhost:1234,reuseaddr - | \
-LD_PRELOAD=$PWD/inject.so dsd -i - -o /dev/null -u 7 -g 20 -f1 -pu -mc -d $OUT_DIR'
+screen -d -m -S dsd bash --noprofile --norc  -c 'socat -d -d tcp-connect:localhost:1234,reuseaddr - | LD_PRELOAD=$PWD/inject.so dsd -i - -o /dev/null -u 7 -g 20 -f1 -pu -mc -d $OUT_DIR'
 
 #create rtl_fm stderr to db read loop, you guessed it, via socat (albeit indirectly)
-screen -S rtl_fm bash --noprofile --norc -c ./scripts/read_rtl_fm_loop.sh
+screen -d -m -S rtl_fm bash --noprofile --norc -c "$1/read_rtl_fm_loop.sh"
+
+#screen -S freq 
+bash --noprofile --norc -c "$PWD/correlate_frequencies $PWD/db-out"

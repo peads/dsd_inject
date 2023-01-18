@@ -13,13 +13,18 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
-while read var; do
-    echo  $(date +"%Y-%m-%dT%H:%M:%S%:z"), $var;
-done < $PWD/fm-out |
-awk -F', ' 'BEGIN{OFS=";"}
-{ gsub(/rms/,""); gsub(/avg/,""); gsub(/squelch/,"") }
-{
-    if ($3>=$6) {
-        print $1, substr($2, 1, 3)"."substr($2, 4, 3) | "tee $PWD/db-in"
-    }
-}'
+if [[ $OSTYPE == 'darwin'* ]]; then
+  R_T=''
+elif [[ $OSTYPE == 'linux'* ]]; then
+  R_T='-lrt'
+fi
+
+if [[ -n $1 ]]; then
+  DIR=$PWD
+else
+  DIR=$PWD/$1
+fi
+
+gcc -Werror -Wno-deprecated-declarations -Wall -Wextra -O2 -m64 -ldl $(mysql_config --cflags) \
+  $DIR/src/utils.c $DIR/src/correlate_frequencies.c -o $PWD/correlate_frequencies \
+  $(mysql_config --libs) -lz -pthread $R_T -DTRACE

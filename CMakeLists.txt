@@ -19,12 +19,16 @@ project(dsd_inject C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_VERBOSE)
 
+include_directories(src)
+
 add_definitions(-O2)
 add_definitions(-m64)
 add_definitions(-fPIC)
 add_definitions(-pthread)
 ADD_DEFINITIONS(-Werror)
 ADD_DEFINITIONS(-Wno-deprecated-declarations)
+add_definitions(-Wno-unused-but-set-variable)
+add_definitions(-Wno-unused-variable)
 ADD_DEFINITIONS(-Wall)
 ADD_DEFINITIONS(-Wextra)
 
@@ -43,9 +47,12 @@ elseif(CMAKE_C_COMPILER_ID STREQUAL "AppleClang")
 #    ADD_DEFINITIONS(-D_TIMESPEC_DEFINED)
 endif()
 
-include_directories(src)
-
 add_library(dsd_inject SHARED
-        src/dsd_inject_db_min.c
+        src/utils.h
+        src/utils.c
         src/inject.h
-        src/utils.c)
+        src/dsd_inject_db_min.c)
+add_executable(correlate_frequencies
+        src/utils.h
+        src/utils.c
+        src/correlate_frequencies.c)
