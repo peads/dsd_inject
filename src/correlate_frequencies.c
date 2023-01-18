@@ -190,41 +190,23 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
 
 void *run(void *ctx) {
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Read thread spawned");
-    struct thread_args *args = (struct thread_args *)ctx;
-    char *portname = (char *)args->buf;
-
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Fetching args");
+    struct thread_args *args = (struct thread_args *)ctx;
+    char *token = strtok(args->buf, ";");
+    char *date = (char *) token;
+    char *frequency = strtok(NULL, ";");
+
+    OUTPUT_DEBUG_STDERR(stderr,"date: %s", date);
+    OUTPUT_DEBUG_STDERR(stderr,"freq: %s", frequency);
+
     pthread_t pid = args->pid;
-    ssize_t nbyte = 0;
-    OUTPUT_DEBUG_STDERR(stderr, "Opening file: %s", portname);
-    int fd = open(portname, O_RDONLY | O_NOCTTY | O_SYNC);
     
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Freeing args");
     free(ctx);
 
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering main loop");
-    while (isRunning && nbyte >= 0) {
-
-        char buf[MAX_BUF_SIZE];
-
-        OUTPUT_DEBUG_STDERR(stderr, "%s", "Reading file");
-        nbyte = read(fd, buf, MAX_BUF_SIZE);
-        OUTPUT_DEBUG_STDERR(stderr, "Read: %ld bytes", nbyte);
-        
-        char *token = strtok(buf, ";");
-        char *date = (char *) token;
- 
-        token = strtok(NULL, ";");
-
-        float freq = atof(token);
-        
-        if (freq > 0.0) {
-            OUTPUT_DEBUG_STDERR(stderr,"date: %s", date);
-            OUTPUT_DEBUG_STDERR(stderr,"freq: %f", freq);
-            writeUpdateDatabase(token, 8, date);
-        }
+    if (atof(frequency) > 0.0) {
+        writeUpdateDatabase(frequency, 8, date);
     }
-
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Thread ending");
     pthread_exit(&pid);
@@ -247,20 +229,32 @@ int main(int argc, char *argv[]) {
         initializeSignalHandlers();
         isRunning = 1;
 
-        pthread_t pid = 0;
-        struct thread_args *args = malloc(sizeof(struct thread_args));
-        args->buf = malloc(sizeof(args[1]));
-//    args->nbyte = MAX_BUF_SIZE;
-
-        OUTPUT_DEBUG_STDERR(stderr, "%s", "Setting exit");
+        OUTPUT_DEBUG_STDERR(stderr, "%s", "Setting atexit");
         atexit(onExit);
+    }
 
-        memcpy((char *) args->buf, (void *) argv[1], sizeof(args[1]));
+    pthread_t pid = 0;
+    struct thread_args *args = malloc(sizeof(struct thread_args));
+    ssize_t nbyte = 0;
+    char *portname = argv[1];
 
+    OUTPUT_DEBUG_STDERR(stderr, "Opening file: %s", portname);
+    int fd = open(portname, O_RDONLY | O_NOCTTY | O_SYNC);
 
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering main loop");
+    while (isRunning && nbyte >= 0) {
+
+        char buf[MAX_BUF_SIZE];
+
+        OUTPUT_DEBUG_STDERR(stderr, "%s", "Reading file");
+        nbyte = read(fd, buf, MAX_BUF_SIZE);
+        OUTPUT_DEBUG_STDERR(stderr, "Read: %ld bytes", nbyte);
+
+        args->buf = buf;
+        args->nbyte = nbyte;
         pthread_create(&pid, NULL, run, (void *) args);
         args->pid = pid;
+        pthread_detach(pid);
         OUTPUT_DEBUG_STDERR(stderr, "Spawning read thread pid: %ld", *(long *) pid);
-        pthread_join(pid, NULL);
     }
 }
