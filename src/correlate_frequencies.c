@@ -27,19 +27,21 @@
                             "values (?) on duplicate key update `date_modified`=NOW();"
 #define INSERT_INFO         "INSERT INTO frequencydata (frequency) " \
                             "VALUES (%s);"
-#define UPDATE_STATEMENT    "update `imbedata` set `date_decoded`=?, `frequency`=? where `date_recorded`=?;"
+#define UPDATE_STATEMENT    "update LOW_PRIORITY `imbedata` set `date_decoded`=?, `frequency`=? where `date_recorded`=?;"
 #define UPDATE_INFO         "update imbedata set (date_decoded, frequency) values (%s, %s) " \
                             "where date_recorded=%s;"
 #define LOCK_STATEMENT      "select * from `imbedata` where `date_recorded`=? for update"
 #define MAX_BUF_SIZE 34
 #define MAX_SQL_ERROR_ARGS 1
 
+static time_t previousTime = -1;
 static int isRunning = 0;
 sem_t sem;
 int fd;
 int countThreads = 0; 
 
 void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
+    sem_wait(&sem);
     struct tm *timeinfo = malloc(sizeof(*timeinfo));
 
     int *year = malloc(sizeof(int*));
@@ -84,7 +86,6 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
     OUTPUT_DEBUG_STDERR(stderr, "Got %s MHz. With size %ld", frequency, nbyte);
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Generating prepared statement");
-    OUTPUT_INFO_STDERR(stderr, INSERT_INFO, frequency);
     stmt = generateMySqlStatment(INSERT_STATEMENT, conn, &status, 96);
     if (status != 0) {
         doExit(conn);
@@ -104,12 +105,12 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
         doExit(conn);
     }
 
+    OUTPUT_INFO_STDERR(stderr, INSERT_INFO, frequency);
     OUTPUT_INFO_STDERR(stderr, "Rows affected: %llu", mysql_stmt_affected_rows(stmt)); 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing statement");
     mysql_stmt_close(stmt);
     
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Generating prepared statement");
-    OUTPUT_INFO_STDERR(stderr, UPDATE_INFO, date, frequency, date);
     stmt = generateMySqlStatment(UPDATE_STATEMENT, conn, &status, 145);
     
     MYSQL_BIND bnd[3];
@@ -132,6 +133,7 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
         doExit(conn);
     }
 
+    OUTPUT_INFO_STDERR(stderr, UPDATE_INFO, date, frequency, date);
     OUTPUT_INFO_STDERR(stderr, "Rows affected: %llu", mysql_stmt_affected_rows(stmt)); 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing statement");
     mysql_stmt_close(stmt);
@@ -141,9 +143,8 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
     
     free(year);
     free(month);
+    sem_post(&sem);
 }
-
-static time_t previousTime = -1;
 
 void *run(void *ctx) {
     time_t currentTime = time(NULL);
@@ -164,18 +165,17 @@ void *run(void *ctx) {
     pthread_t pid = args->pid;  
     OUTPUT_DEBUG_STDERR(stderr,"Write thread spawned, pid: %ld", *(long *) pid);
 
-    if (previousTime == -1 || previousTime != currentTime) {
-        if (frequency != NULL && atof(frequency) > 0.0) {
-            OUTPUT_DEBUG_STDERR(stderr,"date: %s", date);
-            OUTPUT_DEBUG_STDERR(stderr,"freq: %s", frequency);
-            sem_wait(&sem);
-            writeUpdateDatabase(frequency, 8, date);
-            sem_post(&sem);
-        }
+    if ((previousTime == -1 || previousTime != currentTime) && (frequency != NULL && atof(frequency) > 0.0)) {
+        OUTPUT_DEBUG_STDERR(stderr,"date: %s", date);
+        OUTPUT_DEBUG_STDERR(stderr,"freq: %s", frequency);
+
+        writeUpdateDatabase(frequency, 8, date);
     }
-   
+
+
+    previousTime = currentTime;
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Thread ending");
-    countThreads--;
+    OUTPUT_INFO_STDERR(stderr, "Threads currently processing: %d", --countThreads);
     pthread_exit(&pid);
 }
 
@@ -200,8 +200,8 @@ int main(int argc, char *argv[]) {
         OUTPUT_DEBUG_STDERR(stderr, "%s", "Setting atexit");
         atexit(onExit);
  
-        sem_close(&sem);
-        sem_init(&sem, 0, 2);
+        //sem_close(&sem);
+        //sem_init(&sem, 0, 2);
     }
 
     struct thread_args *args = malloc(sizeof(struct thread_args));
@@ -223,7 +223,7 @@ int main(int argc, char *argv[]) {
         args->buf = buf;
         args->nbyte = nbyte;
 
-        OUTPUT_INFO_STDERR(stderr, "Threads currently processing: %d", ++countThreads);
+        countThreads++;
         pthread_create(&pid, NULL, run, (void *) args);
         args->pid = pid;
         pthread_detach(pid);

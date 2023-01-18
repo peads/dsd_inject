@@ -20,6 +20,8 @@
 
 #include "utils.h"
 
+#define SEM_RESOURCES 128
+
 const char *db_pass;
 const char *db_host;
 const char *db_user;
@@ -35,7 +37,7 @@ void doExit(MYSQL *con) {
 }
 
 void initializeEnv() {
-    sem_init(&sem, 0, 16);
+    sem_init(&sem, 0, SEM_RESOURCES);
 
     db_pass = getenv("DB_PASS");
     if (db_pass) {
