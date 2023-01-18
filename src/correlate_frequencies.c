@@ -67,25 +67,6 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Initializing db connection");
     MYSQL *conn = initializeMySqlConnection(bind);
     
-    //mysql_real_query(conn, "BEGIN", 6);
-    //MYSQL_STMT *stmt = generateMySqlStatment(LOCK_STATEMENT, conn, &status, 60);
-    //if (status != 0) {
-    //    doExit(conn);
-    //}
-
-    //status = mysql_stmt_bind_param(stmt, bind);
-    //if (status != 0) {
-    //    doExit(conn);
-    //}
-
-    //status = mysql_stmt_execute(stmt);
-    //if (status != 0) {
-    //    doExit(conn);
-    //}
-
-    //OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing statement");
-    //mysql_stmt_close(stmt);
-    
     char frequency[nbyte];
     strncpy(frequency, freq, nbyte);
     frequency[nbyte - 1] = '\0';
@@ -150,10 +131,6 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
     OUTPUT_INFO_STDERR(stderr, "Rows affected: %llu", mysql_stmt_affected_rows(stmt)); 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing statement");
     mysql_stmt_close(stmt);
-
-
-    //OUTPUT_DEBUG_STDERR(stderr, "%s", "Committing transaction");
-    //mysql_commit(conn);
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing database connection");
     mysql_close(conn);
