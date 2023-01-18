@@ -23,14 +23,14 @@
 #include <unistd.h>
 #include "utils.h"
 
-#define INSERT_STATEMENT    "insert into frequencydata (`frequency`) " \
-                            "values (?) on duplicate key update `date_modified`=NOW();"
-#define INSERT_INFO         "INSERT INTO frequencydata (frequency) " \
-                            "VALUES (%s);"
-#define UPDATE_STATEMENT    "update LOW_PRIORITY `imbedata` set `date_decoded`=?, `frequency`=? where `date_recorded`=?;"
-#define UPDATE_INFO         "update imbedata set (date_decoded, frequency) values (%s, %s) " \
-                            "where date_recorded=%s;"
-#define LOCK_STATEMENT      "select * from `imbedata` where `date_recorded`=? for update"
+#define INSERT_STATEMENT        "insert into frequencydata (`frequency`) " \
+                                "values (?) on duplicate key update `date_modified`=NOW();"
+#define INSERT_INFO             "INSERT INTO frequencydata (frequency) " \
+                                "VALUES (%s);"
+
+#define UPDATE_STATEMENT        "update `imbedata` set `date_decoded`=?, `frequency`=? where `date_recorded`=?;"
+#define UPDATE_STATEMENT_LP     "update LOW_PRIORITY `imbedata` set `date_decoded`=?, `frequency`=? where `date_recorded`=?;"
+#define UPDATE_INFO             "update imbedata set (date_decoded, frequency) values (%s, %s) where date_recorded=%s;"
 #define MAX_BUF_SIZE 34
 #define MAX_SQL_ERROR_ARGS 1
 
@@ -40,8 +40,10 @@ sem_t sem;
 int fd;
 int countThreads = 0; 
 
-void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
+void writeUpdateDatabase(char *freq, size_t nbyte, char *date, time_t *ts) {
     sem_wait(&sem);
+    char *updateStatement = (time(NULL) - *ts) > 5 ? UPDATE_STATEMENT : UPDATE_STATEMENT_LP;
+
     struct tm *timeinfo = malloc(sizeof(*timeinfo));
 
     int *year = malloc(sizeof(int*));
@@ -86,7 +88,7 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
     OUTPUT_DEBUG_STDERR(stderr, "Got %s MHz. With size %ld", frequency, nbyte);
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Generating prepared statement");
-    stmt = generateMySqlStatment(INSERT_STATEMENT, conn, &status, 96);
+    stmt = generateMySqlStatment(INSERT_STATEMENT, conn, &status, 98);
     if (status != 0) {
         doExit(conn);
     }
@@ -111,7 +113,7 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
     mysql_stmt_close(stmt);
     
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Generating prepared statement");
-    stmt = generateMySqlStatment(UPDATE_STATEMENT, conn, &status, 145);
+    stmt = generateMySqlStatment(updateStatement, conn, &status, 92);
     
     MYSQL_BIND bnd[3];
     memset(bnd, 0, sizeof(bnd));
@@ -169,7 +171,7 @@ void *run(void *ctx) {
         OUTPUT_DEBUG_STDERR(stderr,"date: %s", date);
         OUTPUT_DEBUG_STDERR(stderr,"freq: %s", frequency);
 
-        writeUpdateDatabase(frequency, 8, date);
+        writeUpdateDatabase(frequency, 8, date, &currentTime);
     }
 
 

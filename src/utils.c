@@ -20,7 +20,7 @@
 
 #include "utils.h"
 
-#define SEM_RESOURCES 128
+#define SEM_RESOURCES 12
 
 const char *db_pass;
 const char *db_host;
