@@ -81,7 +81,6 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
         doExit(conn);
     }
     
-    OUTPUT_INFO_STDERR(stderr, "Rows affected: %llu", mysql_stmt_affected_rows(stmt)); 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing statement");
     mysql_stmt_close(stmt);
     
@@ -123,6 +122,7 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
     mysql_stmt_close(stmt);
     
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Generating prepared statement");
+    OUTPUT_INFO_STDERR(stderr, UPDATE_INFO, date, frequency, date);
     stmt = generateMySqlStatment(UPDATE_STATEMENT, conn, &status, 145);
     
     MYSQL_BIND bnd[3];
@@ -145,9 +145,10 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
         doExit(conn);
     }
 
+    OUTPUT_INFO_STDERR(stderr, "Rows affected: %llu", mysql_stmt_affected_rows(stmt)); 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing statement");
     mysql_stmt_close(stmt);
-    OUTPUT_INFO_STDERR(stderr, "Rows affected: %llu", mysql_stmt_affected_rows(stmt));
+
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Committing transaction");
     mysql_commit(conn);
