@@ -41,4 +41,5 @@ screen -d -m -S dsd bash --noprofile --norc  -c 'socat -d -d tcp-connect:localho
 #create rtl_fm stderr to db read loop, you guessed it, via socat (albeit indirectly)
 screen -d -m -S rtl_fm bash --noprofile --norc -c "$1/read_rtl_fm_loop.sh"
 
-screen -S freq bash --noprofile --norc -c "$PWD/correlate_frequencies $PWD/db-out"
+#screen -S freq 
+bash --noprofile --norc -c "$PWD/correlate_frequencies $PWD/db-out"

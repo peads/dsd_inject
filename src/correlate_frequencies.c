@@ -196,15 +196,11 @@ void *run(void *ctx) {
     char *date = (char *) token;
     char *frequency = strtok(NULL, ";");
 
-    OUTPUT_DEBUG_STDERR(stderr,"date: %s", date);
-    OUTPUT_DEBUG_STDERR(stderr,"freq: %s", frequency);
+    pthread_t pid = args->pid;  
 
-    pthread_t pid = args->pid;
-    
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "Freeing args");
-    free(ctx);
-
-    if (atof(frequency) > 0.0) {
+    if (frequency != NULL) { //(atof(frequency) > 0.0) {
+        OUTPUT_DEBUG_STDERR(stderr,"date: %s", date);
+        OUTPUT_DEBUG_STDERR(stderr,"freq: %s", frequency);
         writeUpdateDatabase(frequency, 8, date);
     }
 
