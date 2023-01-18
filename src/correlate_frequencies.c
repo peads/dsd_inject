@@ -21,6 +21,8 @@
 #include <termios.h>
 #include <unistd.h>
 #include "utils.h"
+#define __USE_XOPEN
+#include <time.h>
 
 #define INSERT_STATEMENT    "insert into frequencydata (`frequency`) " \
                             "values (?) on duplicate key update `date_modified`=NOW();"
