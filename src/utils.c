@@ -133,13 +133,9 @@ MYSQL *initializeMySqlConnection(MYSQL_BIND *bind) {
     return conn;
 }
 
-MYSQL_TIME *generateMySqlTime(const time_t *t) {
+MYSQL_TIME *generateMySqlTimeFromTm(const struct tm *timeinfo) {
 
-    struct tm *timeinfo;
-    MYSQL_TIME *dateDecoded;
-
-    timeinfo = localtime(t);
-    dateDecoded = malloc(sizeof(*dateDecoded));
+    MYSQL_TIME *dateDecoded = malloc(sizeof(*dateDecoded));
 
     dateDecoded->year = timeinfo->tm_year + 1900; // struct tm stores year as years since 1900
     dateDecoded->month = timeinfo->tm_mon + 1; // struct tm stores month as months since January (0-11)
@@ -149,6 +145,14 @@ MYSQL_TIME *generateMySqlTime(const time_t *t) {
     dateDecoded->second = timeinfo->tm_sec;
 
     return dateDecoded;
+}
+
+MYSQL_TIME *generateMySqlTime(const time_t *t) {
+
+    struct tm *timeinfo;
+    timeinfo = localtime(t);
+
+    return generateMySqlTimeFromTm(timeinfo);
 }
 
 MYSQL_STMT *generateMySqlStatment(char *statement, MYSQL *conn, int *status, long size) {
