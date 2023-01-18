@@ -35,7 +35,7 @@ void doExit(MYSQL *con) {
 }
 
 void initializeEnv() {
-    sem_init(&sem, 0, 128);
+    sem_init(&sem, 0, 16);
 
     db_pass = getenv("DB_PASS");
     if (db_pass) {
