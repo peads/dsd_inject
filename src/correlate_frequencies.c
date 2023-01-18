@@ -34,7 +34,7 @@
 #define MAX_BUF_SIZE 34
 #define MAX_SQL_ERROR_ARGS 1
 static int isRunning = 0;
-
+sem_t sem;
 void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
     struct tm *timeinfo = malloc(sizeof(*timeinfo));
 
@@ -160,23 +160,27 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
 }
 
 void *run(void *ctx) {
+    sem_wait(&sem);
+    
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Read thread spawned");
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Fetching args");
     struct thread_args *args = (struct thread_args *)ctx;
     char *token = strtok(args->buf, ";");
     char *date = (char *) token;
-    char *frequency = strtok(NULL, ";");
-
+    token = strtok(NULL, ";");
+    char *frequency = (char *) token;
+    
+    OUTPUT_DEBUG_STDERR(stderr,"date: %s", date);
+    OUTPUT_DEBUG_STDERR(stderr,"freq: %s", frequency);
     pthread_t pid = args->pid;  
 
-    if (frequency != NULL) { //(atof(frequency) > 0.0) {
-        OUTPUT_DEBUG_STDERR(stderr,"date: %s", date);
-        OUTPUT_DEBUG_STDERR(stderr,"freq: %s", frequency);
+    if (frequency != NULL && atof(frequency) > 0.0) {
         writeUpdateDatabase(frequency, 8, date);
     }
-
-    sem_post(&sem);
+    
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Thread ending");
+    
+    sem_post(&sem);
     pthread_exit(&pid);
 }
 
@@ -225,4 +229,6 @@ int main(int argc, char *argv[]) {
         pthread_detach(pid);
         OUTPUT_DEBUG_STDERR(stderr, "Spawning read thread pid: %ld", *(long *) pid);
     }
+    
+    
 }

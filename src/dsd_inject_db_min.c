@@ -76,6 +76,8 @@ void *run(void *ctx) {
 
     struct thread_args *args = (struct thread_args *) ctx;
 
+    sem_wait(&sem);
+
     writeToDatabase(args->buf, args->nbyte);
 
     sem_post(&sem);

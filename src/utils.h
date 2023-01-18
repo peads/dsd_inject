@@ -59,7 +59,7 @@ struct thread_args {
     pthread_t pid;
 };
 
-static sem_t sem;
+extern sem_t sem;
 
 /* util functions */
 void doExit(MYSQL *con);
