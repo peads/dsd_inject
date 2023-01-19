@@ -30,11 +30,6 @@
 #include <string.h>
 #include <pthread.h>
 #include <errno.h>
-#include <semaphore.h>
-
-#ifndef SEM_RESOURCES
-#define SEM_RESOURCES 8
-#endif
 
 #if defined(__USE_XOPEN_EXTENDED) || defined(__USE_MISC)
 #undef __USE_MISC
@@ -55,10 +50,15 @@
 #define OUTPUT_INFO_STDERR(file, msg, subs ...)  fprintf(file, msg "\n", subs)
 #endif
 
+#define SEM_RESOURCES 8
 #define LENGTH_OF(arr) (sizeof(arr) / sizeof(*(arr)))
 #define SIX_DAYS_IN_SECONDS 518400
-
-typedef void (*writeUpdateToDatabase)(char *frequency, struct tm *timeinfo, unsigned long nbyte);
+#define INSERT_FREQUENCY_INFO "INSERT INTO frequencydata (frequency) VALUES (%s);"
+#define INSERT_FREQUENCY "insert into frequencydata (`frequency`) values (?) on duplicate key update `date_modified`=NOW();"
+#define UPDATE_FREQUENCY "update LOW_PRIORITY `imbedata` set `date_decoded`=?, `frequency`=? where `date_recorded`=?;"
+#define UPDATE_FREQUENCY_INFO "UPDATE imbedata SET date_decoded=%s, frequency=%s WHERE date_recorded=%s;"
+#define INSERT_DATA "INSERT INTO imbedata (date_recorded, data) VALUES (?, ?);"
+#define INSERT_INFO "INSERT INTO imbedata (date_recorded, data) VALUES (%s, (data of size: %zu));"
 
 struct insertArgs {
     void *buf;
@@ -71,36 +71,29 @@ struct updateArgs {
     struct tm *timeinfo;
     unsigned long nbyte;
     pthread_t pid;
-    writeUpdateToDatabase write;
 };
 
-static struct updateArgs *updateHash[SIX_DAYS_IN_SECONDS];
-static time_t updateStartTime;
-static int isRunning = 0;
-static sem_t sem;
-static FILE *fd;
-
-static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
-
 /* util functions */
-void doExit(MYSQL *con);
-
-void onSignal(int sig);
-
-void initializeSignalHandlers();
-
-char *getEnvVarOrDefault(char *name, char *def);
-
-void initializeEnv();
-
-void onExit(void);
-
-MYSQL *initializeMySqlConnection(MYSQL_BIND *bind);
-
-MYSQL_TIME *generateMySqlTimeFromTm(const struct tm *timeinfo);
-
-MYSQL_STMT *generateMySqlStatment(char *statement, MYSQL *conn, int *status, long size);
-
-void *startUpdatingFrequency(void *argv);
-
+//void doExit(MYSQL *conn);
+//
+//void onSignal(int sig);
+//
+//void initializeSignalHandlers();
+//
+//char *getEnvVarOrDefault(char *name, char *def);
+//
+//void initializeEnv();
+//
+//MYSQL *initializeMySqlConnection(MYSQL_BIND *bind);
+//
+//MYSQL_TIME *generateMySqlTimeFromTm(const struct tm *timeinfo);
+//
+//MYSQL_STMT *generateMySqlStatment(char *statement, MYSQL *conn, int *status, long size);
+//
+//void *startUpdatingFrequency(void *argv);
+//
+//void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte);
+//
+void writeInsertToDatabase(void *buf, size_t nbyte);
 #endif //UTILS_H
+

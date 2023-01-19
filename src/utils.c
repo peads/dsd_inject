@@ -20,10 +20,15 @@
 
 #include "utils.h"
 
-const char *db_pass;
-const char *db_host;
-const char *db_user;
-const char *schema;
+extern char *db_pass;
+extern char *db_host;
+extern char *db_user;
+extern char *schema;
+
+time_t updateStartTime;
+struct updateArgs *updateHash[SIX_DAYS_IN_SECONDS];
+int isRunning = 0;
+FILE *fd;
 
 void doExit(MYSQL *con) {
 
@@ -34,99 +39,10 @@ void doExit(MYSQL *con) {
     exit(1);
 }
 
-void initializeEnv() {
-
-    sem_init(&sem, 0, SEM_RESOURCES);
-    fprintf(stderr, "Semaphore resources: %d", SEM_RESOURCES);
-
-    db_pass = getenv("DB_PASS");
-    if (db_pass) {
-        db_host = getEnvVarOrDefault("DB_HOST", "127.0.0.1");
-        db_user = getEnvVarOrDefault("DB_USER", "root");
-        schema = getEnvVarOrDefault("SCHEMA", "scanner");
-    } else {
-        fprintf(stderr, "%s", "No database user password defined.");
-        exit(-1);
-    }
-}
-
-void onExit(void) {
-
-    isRunning = 0;
-    next_write = NULL;
-
-    int status;
-
-    if ((status = pclose(fd)) != 0) {
-        fprintf(stderr, "Error closing awk script. status %s\n", strerror(status));
-    }
-
-    if ((status = sem_close(&sem)) != 0) {
-        fprintf(stderr, "unable to unlink semaphore. status: %s\n", strerror(status));
-    } else {
-        fprintf(stderr, "%s", "semaphore destroyed\n");
-    }
-}
-
-char *getEnvVarOrDefault(char *name, char *def) {
-
-    char *result = getenv(name);
-
-    if (result) {
-        return result;
-    }
-    return def;
-}
-
-void onSignal(int sig) {
-
-    fprintf(stderr, "\n\nCaught Signal: %s\n", strsignal(sig));
-
-    exit(-1);
-}
-
-void initializeSignalHandlers() {
-
-    fprintf(stderr, "%s", "initializing signal handlers");
-
-    struct sigaction *sigInfo = malloc(sizeof(*sigInfo));
-    struct sigaction *sigHandler = malloc(sizeof(*sigHandler));
-
-    sigHandler->sa_handler = onSignal;
-    sigemptyset(&(sigHandler->sa_mask));
-    sigHandler->sa_flags = 0;
-
-    int sigs[] = {SIGABRT, SIGALRM, SIGFPE, SIGHUP, SIGILL,
-                  SIGINT, SIGPIPE, SIGQUIT, SIGSEGV, SIGTERM,
-                  SIGUSR1, SIGUSR2};
-
-    int i = 0;
-    for (; i < (int) LENGTH_OF(sigs); ++i) {
-        const int sig = sigs[i];
-        const char *name = strsignal(sig);
-
-        fprintf(stderr, "Initializing signal handler for signal: %s\n", name);
-
-        sigaction(sig, NULL, sigInfo);
-        const int res = sigaction(sig, sigHandler, sigInfo);
-
-        if (res == -1) {
-            fprintf(stderr, "\n\nWARNING: Unable to initialize handler for %s\n\n", name);
-            exit(-1);
-        } else {
-            fprintf(stderr, "Successfully initialized signal handler for signal: %s\n", name);
-        }
-    }
-
-    free(sigInfo);
-    free(sigHandler);
-}
-
-MYSQL *initializeMySqlConnection(MYSQL_BIND *bind) {
+MYSQL *initializeMySqlConnection() {
 
     MYSQL *conn;
     conn = mysql_init(NULL);
-    memset(bind, 0, sizeof(*bind));
 
     if (conn == NULL || mysql_real_connect(
             conn,
@@ -138,12 +54,14 @@ MYSQL *initializeMySqlConnection(MYSQL_BIND *bind) {
 
         doExit(conn);
     }
+    OUTPUT_DEBUG_STDERR(stderr, "host: %s, user: %s, schema: %s", db_host, db_user, schema);
 
     return conn;
 }
 
 MYSQL_TIME *generateMySqlTimeFromTm(const struct tm *timeinfo) {
 
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering utils::generateMySqlTimeFromTm");
     MYSQL_TIME *dateDecoded = malloc(sizeof(*dateDecoded));
 
     dateDecoded->year = timeinfo->tm_year + 1900; // struct tm stores year as years since 1900
@@ -152,15 +70,159 @@ MYSQL_TIME *generateMySqlTimeFromTm(const struct tm *timeinfo) {
     dateDecoded->hour = timeinfo->tm_hour;
     dateDecoded->minute = timeinfo->tm_min;
     dateDecoded->second = timeinfo->tm_sec;
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Returning from  utils::generateMySqlTimeFromTm");
 
     return dateDecoded;
 }
 
-MYSQL_STMT *generateMySqlStatment(char *statement, MYSQL *conn, int *status, long size) {
+MYSQL_STMT *generateMySqlStatment(char *statement, MYSQL *conn, long size) {
+    int status = -1;
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering utils::generateMySqlStatment");
+    MYSQL_STMT *stmt = mysql_stmt_init(conn);
 
-    MYSQL_STMT *stmt;
-
-    stmt = mysql_stmt_init(conn);
-    *status = mysql_stmt_prepare(stmt, statement, size);
-    return stmt;
+    if (stmt != NULL) {
+        status = mysql_stmt_prepare(stmt, statement, size);
+        if (status == 0) { 
+                OUTPUT_DEBUG_STDERR(stderr, "%s", "Returning  utils::generateMySqlStatment");
+                return stmt;
+        }
+    }
+    doExit(conn);
+    return NULL;
 }
+
+void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
+
+    int status;
+    MYSQL_STMT *stmt;
+    MYSQL_TIME *dateDemod = generateMySqlTimeFromTm(timeinfo);
+    MYSQL_BIND dateDemodBind;
+    MYSQL_BIND frequencyBind;
+    MYSQL_BIND bind[1];
+    memset(&dateDemodBind, 0, sizeof(dateDemodBind));
+    memset(&frequencyBind, 0, sizeof(frequencyBind));
+
+    dateDemodBind.buffer_type = MYSQL_TYPE_DATETIME;
+    dateDemodBind.buffer = (char *) dateDemod;
+    dateDemodBind.length = 0;
+    dateDemodBind.is_null = 0;
+
+    memcpy(&bind[0], &dateDemodBind, sizeof(dateDemodBind));
+
+    MYSQL *conn = initializeMySqlConnection();
+
+    frequencyBind.buffer_type = MYSQL_TYPE_DECIMAL;
+    frequencyBind.buffer = &frequency;
+    frequencyBind.buffer_length = nbyte;
+    frequencyBind.length = &nbyte;
+    frequencyBind.is_null = 0;
+
+    unsigned long length = LENGTH_OF(INSERT_FREQUENCY);
+    OUTPUT_DEBUG_STDERR(stderr, "Length of string: %ud", length);
+    fprintf(stderr, INSERT_FREQUENCY_INFO "\n", frequency);
+
+    stmt = generateMySqlStatment(INSERT_FREQUENCY, conn, length);
+
+    memcpy(&bind[0], &frequencyBind, sizeof(frequencyBind));
+
+    status = mysql_stmt_bind_param(stmt, bind);
+    if (status != 0) {
+        doExit(conn);
+    }
+
+    status = mysql_stmt_execute(stmt);
+    if (status != 0) {
+        doExit(conn);
+    }
+
+    mysql_stmt_close(stmt);
+
+    char buffer[26];
+    strftime(buffer, 26, "%Y-%m-%dT%H:%M:%S:%z\n", timeinfo);
+
+    length = LENGTH_OF(UPDATE_FREQUENCY_INFO);
+    OUTPUT_DEBUG_STDERR(stderr, "Length of string: %lu", length);
+    fprintf(stderr, UPDATE_FREQUENCY_INFO, buffer, frequency, buffer);
+
+    stmt = generateMySqlStatment(UPDATE_FREQUENCY, conn, length);
+
+    MYSQL_BIND bnd[3];
+    memset(bnd, 0, sizeof(bnd));
+    memcpy(&bnd[0], &dateDemodBind, sizeof(dateDemodBind));
+    memcpy(&bnd[1], &frequencyBind, sizeof(frequencyBind));
+    memcpy(&bnd[2], &dateDemodBind, sizeof(dateDemodBind));
+
+    status = mysql_stmt_bind_param(stmt, bnd);
+    if (status != 0) {
+        doExit(conn);
+    }
+
+    status = mysql_stmt_execute(stmt);
+    if (status != 0) {
+        doExit(conn);
+    }
+
+    mysql_stmt_close(stmt);
+    mysql_close(conn);
+}
+
+void writeInsertToDatabase(void *buf, size_t nbyte) {
+
+    const time_t insertTime = time(NULL);
+    int status = 0;
+
+    MYSQL_BIND bind[2];
+    MYSQL_STMT *stmt;
+    MYSQL *conn;
+    MYSQL_TIME *dateDecoded;
+    
+    struct tm *timeinfo;
+    timeinfo = localtime(&insertTime);
+    dateDecoded = generateMySqlTimeFromTm(timeinfo);
+
+    memset(&bind, 0, 2*sizeof(*bind));
+    bind[0].buffer_type = MYSQL_TYPE_DATETIME;
+    bind[0].buffer = dateDecoded;
+    bind[0].length = 0;
+    bind[0].is_null = 0;
+
+    bind[1].buffer_type = MYSQL_TYPE_BLOB;
+    bind[1].buffer = (char *) &buf;
+    bind[1].buffer_length = nbyte;
+    bind[1].length = &nbyte;
+    bind[1].is_null = 0;
+
+    conn = initializeMySqlConnection();
+
+    char buffer[26];
+    strftime(buffer, 26, "%Y-%m-%dT%H:%M:%S:%z\n", timeinfo);
+
+    unsigned long length = LENGTH_OF(INSERT_DATA);
+    OUTPUT_DEBUG_STDERR(stderr, "Length of string: %lu", length);
+    fprintf(stderr, INSERT_INFO "\n", buffer, nbyte);
+    
+    stmt = generateMySqlStatment(INSERT_DATA, conn,  LENGTH_OF(INSERT_DATA));
+
+    status = mysql_stmt_bind_param(stmt, bind);
+    if (status != 0) {
+        doExit(conn);
+    }
+    status = mysql_stmt_execute(stmt);
+    if (status != 0) {
+        doExit(conn);
+    }
+
+    mysql_stmt_close(stmt);
+    mysql_close(conn);
+
+    time_t idx = (insertTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
+    OUTPUT_DEBUG_STDERR(stderr, "Index: %lu", idx);
+    //struct updateArgs *dbArgs = updateHash[idx];
+    //strftime(buffer, 26, "%Y-%m-%dT%H:%M:%S:%z\n", dbArgs->timeinfo);
+    //fprintf(stderr, "Using function pointer to call update with time: %s", buffer);
+
+    //writeUpdate(dbArgs->frequency, dbArgs->timeinfo, dbArgs->nbyte);
+
+    free((void *) dateDecoded);
+}
+
