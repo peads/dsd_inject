@@ -101,17 +101,16 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     sem_post(&sem);
 }
 
-void startUpdatingFrequency(char *argv) {
+void *startUpdatingFrequency(void *ctx) {
 
     if (isRunning) {
-        return;
+        return NULL;
     }
 
     updateStartTime = time(NULL);
-    initializeEnv();
-    initializeSignalHandlers();
     isRunning = 1;
-    char *portname = argv;
+    struct insertArgs *args = (struct insertArgs *) ctx;
+    char *portname = args->buf;
     unsigned long size = 6 + strchr(portname, '\0') - ((char *) portname);
     char cmd[size];
     strcpy(cmd, portname);
@@ -186,5 +185,7 @@ void startUpdatingFrequency(char *argv) {
             free(args);
         }
     } while (isRunning && ret != EOF);
+
+    pthread_exit(&args->pid);
 }
 

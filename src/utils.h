@@ -101,6 +101,6 @@ MYSQL_TIME *generateMySqlTimeFromTm(const struct tm *timeinfo);
 
 MYSQL_STMT *generateMySqlStatment(char *statement, MYSQL *conn, int *status, long size);
 
-void startUpdatingFrequency(char *argv);
+void *startUpdatingFrequency(void *argv);
 
 #endif //UTILS_H

@@ -121,8 +121,13 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
             fprintf(stderr, "\nwrite: dlwrite failed: %s::Exiting\n", msg);
             exit(-1);
         }
+        pthread_t pid = 0;
+        struct insertArgs *args = malloc(sizeof(struct insertArgs));
+        args->buf = "/home/peads/dsd_inject/read_rtl_fm_loop.sh";
+        args->pid = pid;
 
-        startUpdatingFrequency("/home/peads/dsd_inject/read_rtl_fm_loop.sh");
+        pthread_create(&args->pid, NULL, startUpdatingFrequency, (void *) args);
+        pthread_detach(pid);
     }
 
     pthread_t pid = 0;
