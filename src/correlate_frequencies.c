@@ -18,24 +18,33 @@
 // Created by Patrick Eads on 1/16/23.
 //
 
+#define SEM_RESOURCES 4
 #include <fcntl.h>
 #include <termios.h>
 #include <unistd.h>
 #include "utils.h"
 
-#define INSERT_STATEMENT    "insert into frequencydata (`frequency`) " \
-                            "values (?) on duplicate key update `date_modified`=NOW();"
-#define INSERT_INFO         "INSERT INTO frequencydata (frequency) " \
-                            "VALUES (%s);"
-#define UPDATE_STATEMENT    "update `imbedata` set `date_decoded`=?, `frequency`=? where `date_recorded`=?;"
-#define UPDATE_INFO         "update imbedata set (date_decoded, frequency) values (%s, %s) " \
-                            "where date_recorded=%s;"
-#define LOCK_STATEMENT      "select * from `imbedata` where `date_recorded`=? for update"
+#define INSERT_STATEMENT        "insert into frequencydata (`frequency`) " \
+                                "values (?) on duplicate key update `date_modified`=NOW();"
+#define INSERT_INFO             "INSERT INTO frequencydata (frequency) " \
+                                "VALUES (%s);"
+
+#define UPDATE_STATEMENT        "update `imbedata` set `date_decoded`=?, `frequency`=? where `date_recorded`=?;"
+#define UPDATE_STATEMENT_LP     "update LOW_PRIORITY `imbedata` set `date_decoded`=?, `frequency`=? where `date_recorded`=?;"
+#define UPDATE_INFO             "update imbedata set (date_decoded, frequency) values (%s, %s) where date_recorded=%s;"
 #define MAX_BUF_SIZE 34
 #define MAX_SQL_ERROR_ARGS 1
+
+static time_t previousTime = -1;
 static int isRunning = 0;
 sem_t sem;
-void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
+int fd;
+int countThreads = 0; 
+
+void writeUpdateDatabase(char *freq, size_t nbyte, char *date, time_t *ts) {
+    sem_wait(&sem);
+    char *updateStatement = (time(NULL) - *ts) > 5 ? UPDATE_STATEMENT : UPDATE_STATEMENT_LP;
+
     struct tm *timeinfo = malloc(sizeof(*timeinfo));
 
     int *year = malloc(sizeof(int*));
@@ -46,45 +55,27 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
     
     timeinfo->tm_year = *year - 1900;
     timeinfo->tm_mon = *month - 1;
+    timeinfo->tm_isdst = 0;
     
     int status;
+    MYSQL_STMT *stmt;
     MYSQL_TIME *dateDemod = generateMySqlTimeFromTm(timeinfo); 
     MYSQL_BIND dateDemodBind;
     MYSQL_BIND frequencyBind;
     MYSQL_BIND bind[1];
     memset(&dateDemodBind, 0, sizeof(dateDemodBind)); 
-    memset(&frequencyBind, 0, sizeof(frequencyBind)); 
+    memset(&frequencyBind, 0, sizeof(frequencyBind));  
     
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "Initializing db connection");
-    MYSQL *conn = initializeMySqlConnection(bind);
-    
-    mysql_real_query(conn, "BEGIN", 6);
-    MYSQL_STMT *stmt = generateMySqlStatment(LOCK_STATEMENT, conn, &status, 60);
-    if (status != 0) {
-        doExit(conn);
-    }
- 
     dateDemodBind.buffer_type = MYSQL_TYPE_DATETIME;
     dateDemodBind.buffer = (char *) dateDemod;
     dateDemodBind.length = 0;
     dateDemodBind.is_null = 0;
 
     memcpy(&bind[0], &dateDemodBind, sizeof(dateDemodBind));  
-
-    status = mysql_stmt_bind_param(stmt, bind);
-    if (status != 0) {
-        doExit(conn);
-    }
-
-    status = mysql_stmt_execute(stmt);
-    if (status != 0) {
-        doExit(conn);
-    }
     
-    OUTPUT_INFO_STDERR(stderr, "Rows affected: %llu", mysql_stmt_affected_rows(stmt)); 
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing statement");
-    mysql_stmt_close(stmt);
-    
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Initializing db connection");
+    MYSQL *conn = initializeMySqlConnection(bind);
+ 
     char frequency[nbyte];
     strncpy(frequency, freq, nbyte);
     frequency[nbyte - 1] = '\0';
@@ -98,8 +89,7 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
     OUTPUT_DEBUG_STDERR(stderr, "Got %s MHz. With size %ld", frequency, nbyte);
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Generating prepared statement");
-    OUTPUT_INFO_STDERR(stderr, INSERT_INFO, frequency);
-    stmt = generateMySqlStatment(INSERT_STATEMENT, conn, &status, 96);
+    stmt = generateMySqlStatment(INSERT_STATEMENT, conn, &status, 98);
     if (status != 0) {
         doExit(conn);
     }
@@ -118,12 +108,13 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
         doExit(conn);
     }
 
+    OUTPUT_INFO_STDERR(stderr, INSERT_INFO, frequency);
     OUTPUT_INFO_STDERR(stderr, "Rows affected: %llu", mysql_stmt_affected_rows(stmt)); 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing statement");
     mysql_stmt_close(stmt);
     
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Generating prepared statement");
-    stmt = generateMySqlStatment(UPDATE_STATEMENT, conn, &status, 145);
+    stmt = generateMySqlStatment(updateStatement, conn, &status, 92);
     
     MYSQL_BIND bnd[3];
     memset(bnd, 0, sizeof(bnd));
@@ -145,22 +136,22 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date) {
         doExit(conn);
     }
 
+    OUTPUT_INFO_STDERR(stderr, UPDATE_INFO, date, frequency, date);
+    OUTPUT_INFO_STDERR(stderr, "Rows affected: %llu", mysql_stmt_affected_rows(stmt)); 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing statement");
     mysql_stmt_close(stmt);
-    OUTPUT_INFO_STDERR(stderr, "Rows affected: %llu", mysql_stmt_affected_rows(stmt));
-
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "Committing transaction");
-    mysql_commit(conn);
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing database connection");
     mysql_close(conn);
     
     free(year);
     free(month);
+    sem_post(&sem);
 }
 
 void *run(void *ctx) {
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "Read thread spawned");
+    time_t currentTime = time(NULL);
+
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Fetching args");
     struct thread_args *args = (struct thread_args *)ctx;
     char *token = strtok(args->buf, ";");
@@ -175,23 +166,25 @@ void *run(void *ctx) {
     strcpy(frequency, (char *) token);
 
     pthread_t pid = args->pid;  
+    OUTPUT_DEBUG_STDERR(stderr,"Write thread spawned, pid: %ld", *(long *) pid);
 
-    
-
-    if (frequency != NULL && atof(frequency) > 0.0) {
+    if ((previousTime == -1 || previousTime != currentTime) && (frequency != NULL && atof(frequency) > 0.0)) {
         OUTPUT_DEBUG_STDERR(stderr,"date: %s", date);
         OUTPUT_DEBUG_STDERR(stderr,"freq: %s", frequency);
-        sem_wait(&sem);
-        writeUpdateDatabase(frequency, 8, date);
-        sem_post(&sem);
+
+        writeUpdateDatabase(frequency, 8, date, &currentTime);
     }
-    
+
+
+    previousTime = currentTime;
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Thread ending");
+    OUTPUT_INFO_STDERR(stderr, "Threads currently processing: %d", --countThreads);
     pthread_exit(&pid);
 }
 
 void onExit(void) {
     isRunning = 0;
+    close(fd);
     onExitSuper();
 }
 
@@ -209,19 +202,21 @@ int main(int argc, char *argv[]) {
 
         OUTPUT_DEBUG_STDERR(stderr, "%s", "Setting atexit");
         atexit(onExit);
+ 
+        //sem_close(&sem);
+        //sem_init(&sem, 0, 2);
     }
 
-    pthread_t pid = 0;
     struct thread_args *args = malloc(sizeof(struct thread_args));
     ssize_t nbyte = 0;
     char *portname = argv[1];
 
     OUTPUT_DEBUG_STDERR(stderr, "Opening file: %s", portname);
-    int fd = open(portname, O_RDONLY | O_NOCTTY | O_SYNC);
+    fd = open(portname, O_RDONLY | O_NOCTTY | O_SYNC);
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering main loop");
     while (isRunning && nbyte >= 0) {
-
+        pthread_t pid = 0;
         char buf[MAX_BUF_SIZE];
 
         OUTPUT_DEBUG_STDERR(stderr, "%s", "Reading file");
@@ -230,10 +225,11 @@ int main(int argc, char *argv[]) {
 
         args->buf = buf;
         args->nbyte = nbyte;
+
+        countThreads++;
         pthread_create(&pid, NULL, run, (void *) args);
         args->pid = pid;
         pthread_detach(pid);
-        OUTPUT_DEBUG_STDERR(stderr, "Spawning read thread pid: %ld", *(long *) pid);
+        OUTPUT_DEBUG_STDERR(stderr, "Spawning write thread, pid: %ld", *(long *) pid);
     }
-    close(fd);
 }
