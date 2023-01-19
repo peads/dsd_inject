@@ -56,14 +56,30 @@
 #endif
 
 #define LENGTH_OF(arr) (sizeof(arr) / sizeof(*(arr)))
+#define SIX_DAYS_IN_SECONDS 518400
 
-struct thread_args {
+typedef void (*writeUpdateToDatabase)(char *frequency, struct tm *timeinfo, unsigned long nbyte);
+
+struct insertArgs {
     void *buf;
     size_t nbyte;
     pthread_t pid;
 };
 
-extern sem_t sem;
+struct updateArgs {
+    char *frequency;
+    struct tm *timeinfo;
+    unsigned long nbyte;
+    pthread_t pid;
+    writeUpdateToDatabase write;
+};
+
+struct updateArgs *updateHash[SIX_DAYS_IN_SECONDS];
+static time_t updateStartTime;
+static int isRunning = 0;
+sem_t sem;
+FILE *fd;
+static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
 
 /* util functions */
 void doExit(MYSQL *con);
@@ -76,7 +92,7 @@ char *getEnvVarOrDefault(char *name, char *def);
 
 void initializeEnv();
 
-void onExitSuper(void);
+void onExit(void);
 
 MYSQL *initializeMySqlConnection(MYSQL_BIND *bind);
 
@@ -86,6 +102,6 @@ MYSQL_TIME *generateMySqlTimeFromTm(const struct tm *timeinfo);
 
 MYSQL_STMT *generateMySqlStatment(char *statement, MYSQL *conn, int *status, long size);
 
-void writeToDatabase(void *buf, size_t nbyte);
+void startUpdatingFrequency(char *argv[]);
 
 #endif //UTILS_H

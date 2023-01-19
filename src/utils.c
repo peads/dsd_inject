@@ -49,9 +49,16 @@ void initializeEnv() {
     }
 }
 
-void onExitSuper(void) {
+void onExit(void) {
+
+    isRunning = 0;
+    next_write = NULL;
 
     int status;
+
+    if ((status = pclose(fd)) != 0) {
+        fprintf(stderr, "Error closing awk script. status %s\n", strerror(status));
+    }
 
     if ((status = sem_close(&sem)) != 0) {
         fprintf(stderr, "unable to unlink semaphore. status: %s\n", strerror(status));

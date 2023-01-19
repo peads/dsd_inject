@@ -23,10 +23,9 @@
 
 #include "utils.h"
 sem_t sem;
-static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
 
 /* main functions */
-void *run(void *ctx);
+void writeInsertToDatabase(void *buf, size_t nbyte);
 
 ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset);
 

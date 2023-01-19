@@ -19,9 +19,7 @@
 //
 
 #define SEM_RESOURCES 4
-#include <fcntl.h>
-#include <termios.h>
-#include <unistd.h>
+
 #include "utils.h"
 
 #define INSERT_STATEMENT        "insert into frequencydata (`frequency`) " \
@@ -29,53 +27,38 @@
 #define INSERT_INFO             "INSERT INTO frequencydata (frequency) " \
                                 "VALUES (%s);"
 
-#define UPDATE_STATEMENT        "update `imbedata` set `date_decoded`=?, `frequency`=? where `date_recorded`=?;"
+//#define UPDATE_STATEMENT        "update `imbedata` set `date_decoded`=?, `frequency`=? where `date_recorded`=?;"
 #define UPDATE_STATEMENT_LP     "update LOW_PRIORITY `imbedata` set `date_decoded`=?, `frequency`=? where `date_recorded`=?;"
-#define UPDATE_INFO             "update imbedata set (date_decoded, frequency) values (%s, %s) where date_recorded=%s;"
+//#define UPDATE_INFO             "update imbedata set (date_decoded, frequency) values (%s, %s) where date_recorded=%s;"
 #define MAX_BUF_SIZE 34
-#define MAX_SQL_ERROR_ARGS 1
 
-static int isRunning = 0;
-sem_t sem;
-FILE *fd;
-int countThreads = 0; 
-
-void writeUpdateDatabase(char *frequency, struct tm *timeinfo) {
+void write(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     sem_wait(&sem);
-    
+
     int status;
     MYSQL_STMT *stmt;
-    MYSQL_TIME *dateDemod = generateMySqlTimeFromTm(timeinfo); 
+    MYSQL_TIME *dateDemod = generateMySqlTimeFromTm(timeinfo);
     MYSQL_BIND dateDemodBind;
     MYSQL_BIND frequencyBind;
     MYSQL_BIND bind[1];
-    memset(&dateDemodBind, 0, sizeof(dateDemodBind)); 
-    memset(&frequencyBind, 0, sizeof(frequencyBind));  
-    
+    memset(&dateDemodBind, 0, sizeof(dateDemodBind));
+    memset(&frequencyBind, 0, sizeof(frequencyBind));
+
     dateDemodBind.buffer_type = MYSQL_TYPE_DATETIME;
     dateDemodBind.buffer = (char *) dateDemod;
     dateDemodBind.length = 0;
     dateDemodBind.is_null = 0;
 
-    memcpy(&bind[0], &dateDemodBind, sizeof(dateDemodBind));  
-    
-    MYSQL *conn = initializeMySqlConnection(bind);
- 
-    OUTPUT_DEBUG_STDERR(stderr, "Size of string: %ld", 1 + strchr(frequency, '\0') - frequency);
-    //unsigned long nbyte = 8;
+    memcpy(&bind[0], &dateDemodBind, sizeof(dateDemodBind));
 
-    unsigned long last = strchr(frequency, '\0') - frequency;
-    unsigned long nbyte = 1 + last;
-    char freq[nbyte];
-    strcpy(freq, frequency);
-    freq[last] = '\0';
+    MYSQL *conn = initializeMySqlConnection(bind);
 
     frequencyBind.buffer_type = MYSQL_TYPE_DECIMAL;
-    frequencyBind.buffer = &freq;
+    frequencyBind.buffer = &frequency;
     frequencyBind.buffer_length = nbyte;
     frequencyBind.length = &nbyte;
     frequencyBind.is_null = 0;
-    
+
     OUTPUT_INFO_STDERR(stderr, INSERT_INFO, frequency);
     stmt = generateMySqlStatment(INSERT_STATEMENT, conn, &status, 98);
     if (status != 0) {
@@ -95,9 +78,9 @@ void writeUpdateDatabase(char *frequency, struct tm *timeinfo) {
     }
 
     mysql_stmt_close(stmt);
-    
+
     stmt = generateMySqlStatment(UPDATE_STATEMENT_LP, conn, &status, 92);
-    
+
     MYSQL_BIND bnd[3];
     memset(bnd, 0, sizeof(bnd));
     memcpy(&bnd[0], &dateDemodBind, sizeof(dateDemodBind));
@@ -120,65 +103,57 @@ void writeUpdateDatabase(char *frequency, struct tm *timeinfo) {
     sem_post(&sem);
 }
 
-void onExit(void) {
-    isRunning = 0;
-    pclose(fd);
-    onExitSuper();
-}
+void startUpdatingFrequency(char *argv[]) {
 
-int main(int argc, char *argv[]) {
-
-    if (argc <= 1) {
-        fprintf(stderr, "Too few argument. Expected: 2 Got: %d\n", argc);
-        return -1;
+    if (isRunning) {
+        return;
     }
 
-    if (!isRunning) {
-        initializeEnv();
-        initializeSignalHandlers();
-        isRunning = 1;
+    updateStartTime = time(NULL);
+    initializeEnv();
+    initializeSignalHandlers();
+    isRunning = 1;
+    char *portname = argv[1];
+    unsigned long size = 6 + strchr(portname, '\0') - ((char *) portname);
+    char cmd[size];
+    strcpy(cmd, portname);
+    strcat(cmd, " 2>&1");
+    fprintf(stderr, "%s size: %lu\n", cmd, size);
 
-        atexit(onExit);
+    fd = popen(cmd, "r");
+    if (fd == NULL)
+        exit(-1);
 
-        char *portname = argv[1];
-        int size = 6 + strchr(portname, '\0') - ((char *) portname);
-        char cmd[size];
-        strcpy(cmd, portname);
-        strcat(cmd, " 2>&1");
-        fprintf(stderr, "%s size: %d\n", cmd, size);
-        
-        fd = popen(cmd, "r");
-        if (fd == NULL)
-            exit(-1);
-    }
-
-    struct thread_args *args = malloc(sizeof(struct thread_args));
-    args->buf = malloc(MAX_BUF_SIZE * sizeof(char));
-
-    struct tm *timeinfo = malloc(sizeof(*timeinfo));
-    int *year = malloc(sizeof(int*));
-    int *month = malloc(sizeof(int*));
-    int *mantissa = malloc(sizeof(int*));
-    int *characteristic = malloc(sizeof(int*));
-    int *tzHours = malloc(sizeof(int));
-    int *tzMin = malloc(sizeof(int));
     int ret;
 
     do {
-        ret = fscanf(fd, "%d-%d-%dT%d:%d:%d+%d:%d;%d.%d\n", 
-                year, 
-                month, 
-                &timeinfo->tm_mday, 
-                &timeinfo->tm_hour, 
-                &timeinfo->tm_min, 
-                &timeinfo->tm_sec, 
-                tzHours, 
-                tzMin, 
-                characteristic, 
-                mantissa);
-         
+        struct updateArgs *args = malloc(sizeof(struct updateArgs));
+        args->frequency = malloc(8 * sizeof(char));
+        args->timeinfo = malloc(sizeof(struct tm));
+        args->write = write;
+
+        struct tm *timeinfo = malloc(sizeof(*timeinfo));
+        int *year = malloc(sizeof(int *));
+        int *month = malloc(sizeof(int *));
+        int *mantissa = malloc(sizeof(int *));
+        int *characteristic = malloc(sizeof(int *));
+        int *tzHours = malloc(sizeof(int));
+        int *tzMin = malloc(sizeof(int));
+
+        ret = fscanf(fd, "%d-%d-%dT%d:%d:%d+%d:%d;%d.%d\n",
+                     year,
+                     month,
+                     &timeinfo->tm_mday,
+                     &timeinfo->tm_hour,
+                     &timeinfo->tm_min,
+                     &timeinfo->tm_sec,
+                     tzHours,
+                     tzMin,
+                     characteristic,
+                     mantissa);
+
         OUTPUT_DEBUG_STDERR(stderr, "vars set: %d\n", ret);
-        
+
         timeinfo->tm_year = *year - 1900;
         timeinfo->tm_mon = *month - 1;
         timeinfo->tm_isdst = 0;
@@ -186,16 +161,31 @@ int main(int argc, char *argv[]) {
         char frequency[8];
         sprintf(frequency, "%d.%d", *characteristic, *mantissa);
 
-        writeUpdateDatabase(frequency, timeinfo);
-    } while (isRunning && ret != EOF);
+        OUTPUT_DEBUG_STDERR(stderr, "Size of string: %ld", 1 + strchr(frequency, '\0') - frequency);
+        //unsigned long nbyte = 8;
 
-    free(year);
-    free(month);
-    free(mantissa);
-    free(characteristic);
-    free(tzHours);
-    free(tzMin);
-    free(args->buf);
-    free(args);
+        unsigned long last = strchr(frequency, '\0') - frequency;
+        unsigned long nbyte = 1 + last;
+        char freq[nbyte];
+        strcpy(freq, frequency);
+        freq[last] = '\0';
+        args->nbyte = nbyte;
+        args->frequency = freq;
+
+        if (ret != 10) {
+            time_t idx = mktime(timeinfo) - updateStartTime;
+            updateHash[idx >= 0 ? (idx % SIX_DAYS_IN_SECONDS) : 0] = args;
+        } else {
+            free(year);
+            free(month);
+            free(mantissa);
+            free(characteristic);
+            free(tzHours);
+            free(tzMin);
+            free(args->frequency);
+            free(args->timeinfo);
+            free(args);
+        }
+    } while (isRunning && ret != EOF);
 }
 

@@ -28,9 +28,9 @@ extern const char *db_host;
 extern const char *db_user;
 extern const char *schema;
 
-void writeToDatabase(void *buf, size_t nbyte) {
+void writeInsertToDatabase(void *buf, size_t nbyte) {
 
-    const time_t startTime = time(NULL);
+    const time_t insertTime = time(NULL);
     int status;
 
     MYSQL_BIND bind[2];
@@ -38,7 +38,7 @@ void writeToDatabase(void *buf, size_t nbyte) {
     MYSQL *conn;
     MYSQL_TIME *dateDecoded;
 
-    dateDecoded = generateMySqlTime(&startTime);
+    dateDecoded = generateMySqlTime(&insertTime);
 
     conn = initializeMySqlConnection(bind);
 
@@ -70,16 +70,21 @@ void writeToDatabase(void *buf, size_t nbyte) {
     mysql_stmt_close(stmt);
     mysql_close(conn);
 
+    time_t idx = insertTime - updateStartTime;
+    struct updateArgs *dbArgs = updateHash[idx >= 0 ? (idx % SIX_DAYS_IN_SECONDS) : 0];
+
+    (dbArgs->write)(dbArgs->frequency, dbArgs->timeinfo, dbArgs->nbyte);
+
     free((void *) dateDecoded);
 }
 
 void *run(void *ctx) {
 
-    struct thread_args *args = (struct thread_args *) ctx;
+    struct insertArgs *args = (struct insertArgs *) ctx;
 
     sem_wait(&sem);
 
-    writeToDatabase(args->buf, args->nbyte);
+    writeInsertToDatabase(args->buf, args->nbyte);
 
     sem_post(&sem);
 
@@ -87,11 +92,6 @@ void *run(void *ctx) {
     free(ctx);
 
     pthread_exit(&args->pid);
-}
-
-void onExit(void) {
-    next_write = NULL;
-    onExitSuper();
 }
 
 ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
@@ -117,7 +117,7 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
     }
 
     pthread_t pid = 0;
-    struct thread_args *args = malloc(sizeof(struct thread_args));
+    struct insertArgs *args = malloc(sizeof(struct insertArgs));
     args->buf = malloc(nbyte * sizeof(char));
     args->nbyte = nbyte;
     args->pid = pid;
