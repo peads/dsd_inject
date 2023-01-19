@@ -18,6 +18,7 @@
 // Created by Patrick Eads on 1/16/23.
 //
 
+#define SEM_RESOURCES 4
 #include <fcntl.h>
 #include <termios.h>
 #include <unistd.h>
@@ -74,7 +75,7 @@ void writeUpdateDatabase(char *freq, size_t nbyte, char *date, time_t *ts) {
     
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Initializing db connection");
     MYSQL *conn = initializeMySqlConnection(bind);
-    
+ 
     char frequency[nbyte];
     strncpy(frequency, freq, nbyte);
     frequency[nbyte - 1] = '\0';
