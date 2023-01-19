@@ -62,8 +62,8 @@ void writeUpdateDatabase(char *frequency, struct tm *timeinfo) {
     MYSQL *conn = initializeMySqlConnection(bind);
  
     //OUTPUT_INFO_STDERR(stderr, "Size of string: %ld", 1 + strchr(frequency, '\0') - frequency);
-
     //unsigned long nbyte = 8;
+
     unsigned long last = strchr(frequency, '\0') - frequency;
     unsigned long nbyte = 1 + last;
     char freq[nbyte];
@@ -122,7 +122,7 @@ void writeUpdateDatabase(char *frequency, struct tm *timeinfo) {
 
 void onExit(void) {
     isRunning = 0;
-    fclose(fd);
+    pclose(fd);
     onExitSuper();
 }
 
