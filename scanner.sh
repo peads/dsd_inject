@@ -42,4 +42,4 @@ screen -d -m -S dsd bash --noprofile --norc  -c 'socat -d -d tcp-connect:localho
 #screen -d -m -S rtl_fm bash --noprofile --norc -c "$1/read_rtl_fm_loop.sh"
 
 #screen -S freq 
-bash --noprofile --norc -c "$PWD/correlate_frequencies $1"
+#bash --noprofile --norc -c "$PWD/correlate_frequencies $1"

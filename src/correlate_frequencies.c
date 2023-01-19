@@ -43,20 +43,6 @@ int countThreads = 0;
 void writeUpdateDatabase(char *frequency, struct tm *timeinfo) {
     sem_wait(&sem);
     
-    //char *updateStatement = (time(NULL) - *ts) > 5 ? UPDATE_STATEMENT : UPDATE_STATEMENT_LP;
-
-    //struct tm *timeinfo = malloc(sizeof(*timeinfo));
-
-    //int *year = malloc(sizeof(int*));
-    //int *month = malloc(sizeof(int*));
-
-    //sscanf(date,  "%d-%d-%dT%d:%d:%d", year, month, &timeinfo->tm_mday, &timeinfo->tm_hour, &timeinfo->tm_min,
-    //       &timeinfo->tm_sec);
-    
-    //timeinfo->tm_year = *year - 1900;
-    //timeinfo->tm_mon = *month - 1;
-    //timeinfo->tm_isdst = 0;
-    
     int status;
     MYSQL_STMT *stmt;
     MYSQL_TIME *dateDemod = generateMySqlTimeFromTm(timeinfo); 
@@ -73,12 +59,8 @@ void writeUpdateDatabase(char *frequency, struct tm *timeinfo) {
 
     memcpy(&bind[0], &dateDemodBind, sizeof(dateDemodBind));  
     
-    //OUTPUT_DEBUG_STDERR(stderr, "%s", "Initializing db connection");
     MYSQL *conn = initializeMySqlConnection(bind);
  
-    //char frequency[nbyte];
-    //strncpy(frequency, freq, nbyte);
-    //frequency[nbyte - 1] = '\0';
     unsigned long nbyte = 1 + strchr(frequency, '\0') - frequency;
     frequencyBind.buffer_type = MYSQL_TYPE_DECIMAL;
     frequencyBind.buffer = (char *) &frequency;
@@ -86,9 +68,6 @@ void writeUpdateDatabase(char *frequency, struct tm *timeinfo) {
     frequencyBind.length = &nbyte;
     frequencyBind.is_null = 0;
 
-    //OUTPUT_DEBUG_STDERR(stderr, "Got %s MHz. With size %ld", frequency, nbyte);
-
-    //OUTPUT_DEBUG_STDERR(stderr, "%s", "Generating prepared statement");
     stmt = generateMySqlStatment(INSERT_STATEMENT, conn, &status, 98);
     if (status != 0) {
         doExit(conn);
@@ -96,24 +75,17 @@ void writeUpdateDatabase(char *frequency, struct tm *timeinfo) {
 
     memcpy(&bind[0], &frequencyBind, sizeof(frequencyBind));
 
-    //OUTPUT_DEBUG_STDERR(stderr, "%s", "Binding parameters");
     status = mysql_stmt_bind_param(stmt, bind);
     if (status != 0) {
         doExit(conn);
     }
 
-    //OUTPUT_DEBUG_STDERR(stderr, "%s", "Executing prepared statement");
     status = mysql_stmt_execute(stmt);
     if (status != 0) {
         doExit(conn);
     }
 
-    //OUTPUT_INFO_STDERR(stderr, INSERT_INFO, frequency);
-    //OUTPUT_INFO_STDERR(stderr, "Rows affected: %llu", mysql_stmt_affected_rows(stmt)); 
-    //OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing statement");
     mysql_stmt_close(stmt);
-    
-    //OUTPUT_DEBUG_STDERR(stderr, "%s", "Generating prepared statement");
     stmt = generateMySqlStatment(UPDATE_STATEMENT_LP, conn, &status, 92);
     
     MYSQL_BIND bnd[3];
@@ -122,30 +94,19 @@ void writeUpdateDatabase(char *frequency, struct tm *timeinfo) {
     memcpy(&bnd[1], &frequencyBind, sizeof(frequencyBind));
     memcpy(&bnd[2], &dateDemodBind, sizeof(dateDemodBind));
 
-    //OUTPUT_DEBUG_STDERR(stderr, "Frequency copied: %s", (char *) bnd[1].buffer);
-
-    //OUTPUT_DEBUG_STDERR(stderr, "%s", "Binding parameters");
     status = mysql_stmt_bind_param(stmt, bnd);
     if (status != 0) {
         doExit(conn);
     }
 
-    //OUTPUT_DEBUG_STDERR(stderr, "%s", "Executing prepared statement");
     status = mysql_stmt_execute(stmt);
     if (status != 0) {
         doExit(conn);
     }
 
-    //OUTPUT_INFO_STDERR(stderr, UPDATE_INFO, date, frequency, date);
-    //OUTPUT_INFO_STDERR(stderr, "Rows affected: %llu", mysql_stmt_affected_rows(stmt)); 
-    //OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing statement");
     mysql_stmt_close(stmt);
-
-    //OUTPUT_DEBUG_STDERR(stderr, "%s", "Closing database connection");
     mysql_close(conn);
-    
-    //free(year);
-    //free(month);
+
     sem_post(&sem);
 }
 
@@ -192,14 +153,9 @@ int main(int argc, char *argv[]) {
     int *characteristic = malloc(sizeof(int*));
     int *tzHours = malloc(sizeof(int));
     int *tzMin = malloc(sizeof(int));
+    int ret;
 
-    //OUTPUT_DEBUG_STDERR(stderr, "Opening file: %s", portname);
-    //OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering main loop");
-
-    int ret; 
     do {
-//        pthread_t pid = 0;
-        
         ret = fscanf(fd, "%d-%d-%dT%d:%d:%d+%d:%d;%d.%d\n", 
                 year, 
                 month, 
@@ -222,13 +178,15 @@ int main(int argc, char *argv[]) {
         sprintf(frequency, "%d.%d", *characteristic, *mantissa);
 
         writeUpdateDatabase(frequency, timeinfo);
+    } while (isRunning && ret != EOF);
 
-        //countThreads++;
-        //pthread_create(&pid, NULL, run, (void *) args);
-        //args->pid = pid;
-        //pthread_detach(pid);
-        ////OUTPUT_DEBUG_STDERR(stderr, "Spawning write thread, pid: %ld", *(long *) pid);
-
-    } while (isRunning && ret != EOF); // (fscanf(fd, "%d-%d-%dT%d:%d:%d+%d:%d;%d.%d", year, month, &timeinfo->tm_mday, &timeinfo->tm_hour, &timeinfo->tm_min, &timeinfo->tm_sec, tzHours, tzMin, characteristic, mantissa)) != EOF) {
+    free(year);
+    free(month);
+    free(mantissa);
+    free(characteristic);
+    free(tzHours);
+    free(tzMin);
+    free(args->buf);
+    free(args);
 }
 
