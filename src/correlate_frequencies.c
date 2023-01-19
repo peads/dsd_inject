@@ -22,14 +22,7 @@
 
 #include "utils.h"
 
-#define INSERT_STATEMENT        "insert into frequencydata (`frequency`) " \
-                                "values (?) on duplicate key update `date_modified`=NOW();"
-#define INSERT_INFO             "INSERT INTO frequencydata (frequency) " \
-                                "VALUES (%s);"
-
-//#define UPDATE_STATEMENT        "update `imbedata` set `date_decoded`=?, `frequency`=? where `date_recorded`=?;"
-#define UPDATE_STATEMENT_LP     "update LOW_PRIORITY `imbedata` set `date_decoded`=?, `frequency`=? where `date_recorded`=?;"
-//#define UPDATE_INFO             "update imbedata set (date_decoded, frequency) values (%s, %s) where date_recorded=%s;"
+#define INSERT_INFO             "INSERT INTO frequencydata (frequency) VALUES (%s);"
 #define MAX_BUF_SIZE 34
 
 void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
@@ -60,7 +53,7 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     frequencyBind.is_null = 0;
 
     OUTPUT_INFO_STDERR(stderr, INSERT_INFO, frequency);
-    stmt = generateMySqlStatment(INSERT_STATEMENT, conn, &status, 98);
+    stmt = generateMySqlStatment("insert into frequencydata (`frequency`) values (?) on duplicate key update `date_modified`=NOW();", conn, &status, 98);
     if (status != 0) {
         doExit(conn);
     }
@@ -79,7 +72,7 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
 
     mysql_stmt_close(stmt);
 
-    stmt = generateMySqlStatment(UPDATE_STATEMENT_LP, conn, &status, 92);
+    stmt = generateMySqlStatment("update LOW_PRIORITY `imbedata` set `date_decoded`=?, `frequency`=? where `date_recorded`=?;", conn, &status, 92);
 
     MYSQL_BIND bnd[3];
     memset(bnd, 0, sizeof(bnd));
@@ -103,7 +96,7 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     sem_post(&sem);
 }
 
-void startUpdatingFrequency(char *argv[]) {
+void startUpdatingFrequency(char *argv) {
 
     if (isRunning) {
         return;
@@ -113,7 +106,7 @@ void startUpdatingFrequency(char *argv[]) {
     initializeEnv();
     initializeSignalHandlers();
     isRunning = 1;
-    char *portname = argv[1];
+    char *portname = argv;
     unsigned long size = 6 + strchr(portname, '\0') - ((char *) portname);
     char cmd[size];
     strcpy(cmd, portname);

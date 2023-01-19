@@ -20,7 +20,6 @@
 #define SEM_RESOURCES 128
 #include "inject.h"
 
-#define INSERT_STATEMENT    "INSERT INTO imbedata (date_recorded, data) VALUES (?, ?);"
 #define INSERT_ERROR        "INSERT INTO imbedata (date_recorded, data) " \
                             "VALUES (%zu, (data of size: %zu));"
 extern const char *db_pass;
@@ -42,7 +41,7 @@ void writeInsertToDatabase(void *buf, size_t nbyte) {
 
     conn = initializeMySqlConnection(bind);
 
-    stmt = generateMySqlStatment(INSERT_STATEMENT, conn, &status, 57);
+    stmt = generateMySqlStatment("INSERT INTO imbedata (date_recorded, data) VALUES (?, ?);", conn, &status, 57);
     if (status != 0) {
         doExit(conn);
     }
@@ -110,10 +109,9 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
         if (msg != NULL) {
             fprintf(stderr, "\nwrite: dlwrite failed: %s::Exiting\n", msg);
             exit(-1);
-        } else {
-            fprintf(stderr, "%s",
-                    "\nwrite: wrapping done\nwrapped with " INSERT_STATEMENT"\n");
         }
+
+        startUpdatingFrequency("/home/peads/dsd_inject/read_rtl_fm_loop.sh");
     }
 
     pthread_t pid = 0;
