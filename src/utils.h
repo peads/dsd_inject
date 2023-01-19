@@ -79,6 +79,7 @@ static time_t updateStartTime;
 static int isRunning = 0;
 static sem_t sem;
 static FILE *fd;
+
 static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
 
 /* util functions */
@@ -95,8 +96,6 @@ void initializeEnv();
 void onExit(void);
 
 MYSQL *initializeMySqlConnection(MYSQL_BIND *bind);
-
-MYSQL_TIME *generateMySqlTime(const time_t *t);
 
 MYSQL_TIME *generateMySqlTimeFromTm(const struct tm *timeinfo);
 

@@ -18,10 +18,12 @@
 // Created by Patrick Eads on 1/11/23.
 //
 #define SEM_RESOURCES 128
-#include "inject.h"
 
-#define INSERT_ERROR        "INSERT INTO imbedata (date_recorded, data) " \
-                            "VALUES (%zu, (data of size: %zu));"
+#include "utils.h"
+
+#define INSERT_DATA "INSERT INTO imbedata (date_recorded, data) VALUES (?, ?);"
+#define INSERT_INFO "INSERT INTO imbedata (date_recorded, data) VALUES (%s, (data of size: %zu));"
+
 extern const char *db_pass;
 extern const char *db_host;
 extern const char *db_user;
@@ -37,11 +39,17 @@ void writeInsertToDatabase(void *buf, size_t nbyte) {
     MYSQL *conn;
     MYSQL_TIME *dateDecoded;
 
-    dateDecoded = generateMySqlTime(&insertTime);
+    struct tm *timeinfo;
+    timeinfo = localtime(&insertTime);
+    dateDecoded = generateMySqlTimeFromTm(timeinfo);
 
     conn = initializeMySqlConnection(bind);
 
-    stmt = generateMySqlStatment("INSERT INTO imbedata (date_recorded, data) VALUES (?, ?);", conn, &status, 57);
+    char buffer[26];
+    strftime(buffer, 26, "%Y-%m-%dT%H:%M:%S%:%z", timeinfo);
+    fprintf(stderr, INSERT_INFO "\n", buffer, nbyte);
+
+    stmt = generateMySqlStatment(INSERT_DATA, conn, &status, 57);
     if (status != 0) {
         doExit(conn);
     }
@@ -71,6 +79,9 @@ void writeInsertToDatabase(void *buf, size_t nbyte) {
 
     time_t idx = insertTime - updateStartTime;
     struct updateArgs *dbArgs = updateHash[idx >= 0 ? (idx % SIX_DAYS_IN_SECONDS) : 0];
+
+    strftime(buffer, 26, "%Y-%m-%dT%H:%M:%S%:%z\n", dbArgs->timeinfo);
+    fprintf(stderr, "Using function pointer to call update with time: %s", buffer);
 
     (dbArgs->write)(dbArgs->frequency, dbArgs->timeinfo, dbArgs->nbyte);
 

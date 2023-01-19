@@ -35,9 +35,10 @@ void doExit(MYSQL *con) {
 }
 
 void initializeEnv() {
+
     sem_init(&sem, 0, SEM_RESOURCES);
     fprintf(stderr, "Semaphore resources: %d", SEM_RESOURCES);
-    
+
     db_pass = getenv("DB_PASS");
     if (db_pass) {
         db_host = getEnvVarOrDefault("DB_HOST", "127.0.0.1");
@@ -155,19 +156,11 @@ MYSQL_TIME *generateMySqlTimeFromTm(const struct tm *timeinfo) {
     return dateDecoded;
 }
 
-MYSQL_TIME *generateMySqlTime(const time_t *t) {
-
-    struct tm *timeinfo;
-    timeinfo = localtime(t);
-
-    return generateMySqlTimeFromTm(timeinfo);
-}
-
 MYSQL_STMT *generateMySqlStatment(char *statement, MYSQL *conn, int *status, long size) {
 
     MYSQL_STMT *stmt;
 
     stmt = mysql_stmt_init(conn);
-    *status = mysql_stmt_prepare(stmt,statement,size);
+    *status = mysql_stmt_prepare(stmt, statement, size);
     return stmt;
 }

@@ -18,14 +18,15 @@
 // Created by Patrick Eads on 1/16/23.
 //
 
-#define SEM_RESOURCES 4
-
 #include "utils.h"
 
-#define INSERT_INFO             "INSERT INTO frequencydata (frequency) VALUES (%s);"
-#define MAX_BUF_SIZE 34
+#define INSERT_FREQUENCY_INFO "INSERT INTO frequencydata (frequency) VALUES (%s);"
+#define INSERT_FREQUENCY "insert into frequencydata (`frequency`) values (?) on duplicate key update `date_modified`=NOW();"
+#define UPDATE_FREQUENCY "update LOW_PRIORITY `imbedata` set `date_decoded`=?, `frequency`=? where `date_recorded`=?;"
+#define UPDATE_FREQUENCY_INFO "UPDATE imbedata SET date_decoded=%s, frequency=%s WHERE date_recorded=%s;"
 
 void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
+
     sem_wait(&sem);
 
     int status;
@@ -52,8 +53,8 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     frequencyBind.length = &nbyte;
     frequencyBind.is_null = 0;
 
-    OUTPUT_INFO_STDERR(stderr, INSERT_INFO, frequency);
-    stmt = generateMySqlStatment("insert into frequencydata (`frequency`) values (?) on duplicate key update `date_modified`=NOW();", conn, &status, 98);
+    fprintf(stderr, INSERT_FREQUENCY_INFO "\n", frequency);
+    stmt = generateMySqlStatment(INSERT_FREQUENCY, conn, &status, 98);
     if (status != 0) {
         doExit(conn);
     }
@@ -72,7 +73,11 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
 
     mysql_stmt_close(stmt);
 
-    stmt = generateMySqlStatment("update LOW_PRIORITY `imbedata` set `date_decoded`=?, `frequency`=? where `date_recorded`=?;", conn, &status, 92);
+    char buffer[26];
+    strftime(buffer, 26, "%Y-%m-%dT%H:%M:%S%:%z\n", timeinfo);
+    fprintf(stderr, UPDATE_FREQUENCY_INFO, buffer, frequency, buffer);
+
+    stmt = generateMySqlStatment(UPDATE_FREQUENCY, conn, &status, 92);
 
     MYSQL_BIND bnd[3];
     memset(bnd, 0, sizeof(bnd));
@@ -114,8 +119,9 @@ void startUpdatingFrequency(char *argv) {
     fprintf(stderr, "%s size: %lu\n", cmd, size);
 
     fd = popen(cmd, "r");
-    if (fd == NULL)
+    if (fd == NULL) {
         exit(-1);
+    }
 
     int ret;
 
@@ -168,6 +174,7 @@ void startUpdatingFrequency(char *argv) {
         if (ret != 10) {
             time_t idx = mktime(timeinfo) - updateStartTime;
             updateHash[idx >= 0 ? (idx % SIX_DAYS_IN_SECONDS) : 0] = args;
+            fprintf(stderr, "Struct added to hash at: %ld\n", idx);
         } else {
             free(year);
             free(month);
@@ -175,7 +182,6 @@ void startUpdatingFrequency(char *argv) {
             free(characteristic);
             free(tzHours);
             free(tzMin);
-            //free(args->frequency);
             free(args->timeinfo);
             free(args);
         }
