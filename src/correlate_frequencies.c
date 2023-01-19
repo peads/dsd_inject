@@ -61,13 +61,22 @@ void writeUpdateDatabase(char *frequency, struct tm *timeinfo) {
     
     MYSQL *conn = initializeMySqlConnection(bind);
  
-    unsigned long nbyte = 1 + strchr(frequency, '\0') - frequency;
+    //OUTPUT_INFO_STDERR(stderr, "Size of string: %ld", 1 + strchr(frequency, '\0') - frequency);
+
+    //unsigned long nbyte = 8;
+    unsigned long last = strchr(frequency, '\0') - frequency;
+    unsigned long nbyte = 1 + last;
+    char freq[nbyte];
+    strcpy(freq, frequency);
+    freq[last] = '\0';
+
     frequencyBind.buffer_type = MYSQL_TYPE_DECIMAL;
-    frequencyBind.buffer = (char *) &frequency;
+    frequencyBind.buffer = &freq;
     frequencyBind.buffer_length = nbyte;
     frequencyBind.length = &nbyte;
     frequencyBind.is_null = 0;
-
+    
+    OUTPUT_INFO_STDERR(stderr, INSERT_INFO, frequency);
     stmt = generateMySqlStatment(INSERT_STATEMENT, conn, &status, 98);
     if (status != 0) {
         doExit(conn);
@@ -86,6 +95,7 @@ void writeUpdateDatabase(char *frequency, struct tm *timeinfo) {
     }
 
     mysql_stmt_close(stmt);
+    
     stmt = generateMySqlStatment(UPDATE_STATEMENT_LP, conn, &status, 92);
     
     MYSQL_BIND bnd[3];
