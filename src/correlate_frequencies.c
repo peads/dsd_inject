@@ -61,7 +61,7 @@ void writeUpdateDatabase(char *frequency, struct tm *timeinfo) {
     
     MYSQL *conn = initializeMySqlConnection(bind);
  
-    //OUTPUT_INFO_STDERR(stderr, "Size of string: %ld", 1 + strchr(frequency, '\0') - frequency);
+    OUTPUT_DEBUG_STDERR(stderr, "Size of string: %ld", 1 + strchr(frequency, '\0') - frequency);
     //unsigned long nbyte = 8;
 
     unsigned long last = strchr(frequency, '\0') - frequency;
@@ -127,7 +127,7 @@ void onExit(void) {
 }
 
 int main(int argc, char *argv[]) {
-    //OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering correlate_frequencies::main");
+
     if (argc <= 1) {
         fprintf(stderr, "Too few argument. Expected: 2 Got: %d\n", argc);
         return -1;
@@ -138,7 +138,6 @@ int main(int argc, char *argv[]) {
         initializeSignalHandlers();
         isRunning = 1;
 
-        //OUTPUT_DEBUG_STDERR(stderr, "%s", "Setting atexit");
         atexit(onExit);
 
         char *portname = argv[1];
@@ -178,7 +177,7 @@ int main(int argc, char *argv[]) {
                 characteristic, 
                 mantissa);
          
-        fprintf(stderr, "vars set: %d\n", ret);
+        OUTPUT_DEBUG_STDERR(stderr, "vars set: %d\n", ret);
         
         timeinfo->tm_year = *year - 1900;
         timeinfo->tm_mon = *month - 1;
