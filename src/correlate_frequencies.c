@@ -32,7 +32,7 @@
 //#define UPDATE_INFO             "update imbedata set (date_decoded, frequency) values (%s, %s) where date_recorded=%s;"
 #define MAX_BUF_SIZE 34
 
-void write(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
+void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     sem_wait(&sem);
 
     int status;
@@ -130,7 +130,7 @@ void startUpdatingFrequency(char *argv[]) {
         struct updateArgs *args = malloc(sizeof(struct updateArgs));
         args->frequency = malloc(8 * sizeof(char));
         args->timeinfo = malloc(sizeof(struct tm));
-        args->write = write;
+        args->write = writeUpdate;
 
         struct tm *timeinfo = malloc(sizeof(*timeinfo));
         int *year = malloc(sizeof(int *));
@@ -182,7 +182,7 @@ void startUpdatingFrequency(char *argv[]) {
             free(characteristic);
             free(tzHours);
             free(tzMin);
-            free(args->frequency);
+            //free(args->frequency);
             free(args->timeinfo);
             free(args);
         }

@@ -74,11 +74,11 @@ struct updateArgs {
     writeUpdateToDatabase write;
 };
 
-struct updateArgs *updateHash[SIX_DAYS_IN_SECONDS];
+static struct updateArgs *updateHash[SIX_DAYS_IN_SECONDS];
 static time_t updateStartTime;
 static int isRunning = 0;
-sem_t sem;
-FILE *fd;
+static sem_t sem;
+static FILE *fd;
 static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
 
 /* util functions */

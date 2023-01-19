@@ -22,7 +22,6 @@
 #define DSD_INJECT_INJECT_H
 
 #include "utils.h"
-sem_t sem;
 
 /* main functions */
 void writeInsertToDatabase(void *buf, size_t nbyte);
