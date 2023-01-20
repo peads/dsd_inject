@@ -39,8 +39,9 @@ static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t of
 void onSignal(int sig) {
 
     fprintf(stderr, "\n\nCaught Signal: %s\n", strsignal(sig));
-
-    exit(-1);
+    if (SIGUSR1 != sig && SIGUSR2 != sig) {
+        exit(-1);
+    }
 }
 
 void initializeSignalHandlers() {
@@ -56,23 +57,16 @@ void initializeSignalHandlers() {
 
     int sigs[] = {SIGABRT, SIGALRM, SIGFPE, SIGHUP, SIGILL,
                   SIGINT, SIGPIPE, SIGQUIT, SIGSEGV, SIGTERM,
-                  /*SIGUSR1, SIGUSR2*/};
+                  SIGUSR1, SIGUSR2};
 
     int i = 0;
-    __sighandler_t prev; 
     for (; i < (int) LENGTH_OF(sigs); ++i) {
         const int sig = sigs[i];
         const char *name = strsignal(sig);
-        const short isUserSig = SIGUSR1 == sig && SIGUSR2 == sig;
-
-        sigaction(sig, NULL, sigInfo);
-        if (isUserSig) {
-            prev = sigHandler->sa_handler;
-            sigHandler->sa_handler = SIG_IGN;
-        }
 
         fprintf(stderr, "Initializing signal handler for signal: %s\n", name);
-        
+
+        sigaction(sig, NULL, sigInfo);
         const int res = sigaction(sig, sigHandler, sigInfo);
 
         if (res == -1) {
@@ -80,16 +74,8 @@ void initializeSignalHandlers() {
             exit(-1);
         } else {
             fprintf(stderr, "Successfully initialized signal handler for signal: %s\n", name);
-            if (isUserSig) {
-                sigHandler->sa_handler = prev;
-            }
         }
     }
-    sigHandler->sa_handler = SIG_IGN;
-    sigaction(SIGUSR1, NULL, sigInfo);
-    sigaction(SIGUSR1, sigHandler, sigInfo);
-    sigaction(SIGUSR2, NULL, sigInfo);
-    sigaction(SIGUSR2, sigHandler, sigInfo);
 
     free(sigInfo);
     free(sigHandler);
@@ -159,6 +145,42 @@ static void onExit(void) {
     next_write = NULL;
 }
 
+void *notifyInsertThread(void *ctx) {
+   
+    struct notifyArgs *nargs = (struct notifyArgs *) ctx;
+    time_t idx = nargs->idx;
+    struct updateArgs *args = nargs->args;
+    int i = 0;
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGUSR2);
+    /*status = */pthread_sigmask(SIG_BLOCK, &set, NULL);
+    
+    struct timespec *spec = malloc(sizeof(struct timespec));
+    spec->tv_sec = time(NULL) + 1;
+    spec->tv_nsec = 0;
+            
+    pthread_t pid;
+
+    do {
+        pid = pidHash[idx];
+        OUTPUT_DEBUG_STDERR(stderr, "Searching pid: %lu at: %lu", pid, idx);
+        if (pid > 0 ) {
+
+            OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNALS AWAY"); 
+            updateHash[idx] = args;
+            fprintf(stderr, "Struct added to hash at: %ld\n", idx);
+            pthread_kill(pid, SIGUSR2);
+            break;
+        } else {
+            sigtimedwait(&set, NULL, spec);
+            fprintf(stderr, "Waited: %d seconds", i);
+        }
+        i++;
+    } while (pid <= 0 && i < 5);
+    pthread_exit(nargs->pid);
+}
+
 void *startUpdatingFrequency(void *ctx) {
 
     if (isRunning) {
@@ -184,7 +206,6 @@ void *startUpdatingFrequency(void *ctx) {
 
     do {
         struct updateArgs *args = malloc(sizeof(struct updateArgs));
-        args->frequency = malloc(8 * sizeof(char));
         args->timeinfo = malloc(sizeof(struct tm));
 
         struct tm *timeinfo = malloc(sizeof(*timeinfo));
@@ -216,46 +237,25 @@ void *startUpdatingFrequency(void *ctx) {
         char frequency[8];
         sprintf(frequency, "%d.%d", *characteristic, *mantissa);
 
-        OUTPUT_DEBUG_STDERR(stderr, "Size of string: %ld", 1 + strchr(frequency, '\0') - frequency);
+        OUTPUT_DEBUG_STDERR(stderr, "Size of string: %ld\n", 1 + strchr(frequency, '\0') - frequency);
         //unsigned long nbyte = 8;
 
         unsigned long last = strchr(frequency, '\0') - frequency;
         unsigned long nbyte = 1 + last;
-        char freq[nbyte];
-        strcpy(freq, frequency);
-        freq[last] = '\0';
+        strcpy(args->frequency, frequency);
+        args->frequency[last] = '\0';
         args->nbyte = nbyte;
-        args->frequency = freq;
+        fprintf(stderr, "FREQUENCY: %s\n", args->frequency);
 
         if (ret == 10) {
             time_t idx = (loopTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
-            pthread_t pid;
-            OUTPUT_DEBUG_STDERR(stderr, "Searching pid: %lu at: %lu", pid, idx);
-            int i = 0;
-            struct timespec *spec = malloc(sizeof(struct timespec));
-            spec->tv_sec = time(NULL) + 1;
-            spec->tv_nsec = 0;
-            
-            sigset_t set;
+            struct notifyArgs *nargs = malloc(sizeof(struct notifyArgs));
 
-            sigemptyset(&set);
-            sigaddset(&set, SIGUSR2);
-            /*status = */pthread_sigmask(SIG_BLOCK, &set, NULL);
-            do {
-                pid = pidHash[idx];
-                if (pid > 0 ) {
-        
-                    OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNALS AWAY"); 
-                    updateHash[idx] = args;
-                    fprintf(stderr, "Struct added to hash at: %ld\n", idx);
-                    pthread_kill(pid, SIGUSR2);
-                    break;
-                } else {
-                    sigtimedwait(&set, NULL, spec);
-                    fprintf(stderr, "Waited: %d seconds", i);
-                }
-                i++;
-            } while (pid <= 0 && i < 5);
+            nargs->idx = idx;
+            nargs->args = args;
+            nargs->pid = malloc(sizeof(pthread_t));
+            pthread_create(nargs->pid, NULL, notifyInsertThread, nargs);
+            pthread_detach(*nargs->pid);
         } else {
             free(year);
             free(month);

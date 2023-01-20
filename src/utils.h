@@ -69,10 +69,16 @@ struct insertArgs {
 };
 
 struct updateArgs {
-    char *frequency;
+    char frequency[8];
     struct tm *timeinfo;
     unsigned long nbyte;
     pthread_t pid;
+};
+
+struct notifyArgs {
+    pthread_t *pid;
+    time_t idx;
+    struct updateArgs *args;
 };
 
 /* util functions */

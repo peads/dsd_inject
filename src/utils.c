@@ -102,10 +102,10 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     MYSQL_BIND dateDemodBind;
     MYSQL_BIND frequencyBind;
     MYSQL_BIND bind[1];
-    memset(&dateDemodBind, 0, sizeof(dateDemodBind));
-    memset(&frequencyBind, 0, sizeof(frequencyBind));
+    memset(&dateDemodBind, 0, sizeof(MYSQL_BIND));
+    memset(&frequencyBind, 0, sizeof(MYSQL_BIND));
 
-    memset(bind, 0, sizeof(*bind));
+    memset(&bind, 0, sizeof(MYSQL_BIND));
 
     dateDemodBind.buffer_type = MYSQL_TYPE_DATETIME;
     dateDemodBind.buffer = (char *) dateDemod;
@@ -117,7 +117,7 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     MYSQL *conn = initializeMySqlConnection();
 
     frequencyBind.buffer_type = MYSQL_TYPE_DECIMAL;
-    frequencyBind.buffer = &frequency;
+    frequencyBind.buffer = frequency;
     frequencyBind.buffer_length = nbyte;
     frequencyBind.length = &nbyte;
     frequencyBind.is_null = 0;
@@ -235,14 +235,16 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
     spec->tv_nsec = 0;
 
     status = sigtimedwait(&set, NULL, spec);
-    if (status != -1) {
-        OUTPUT_DEBUG_STDERR(stderr, "%s", "bad signals");
-        exit(status);
-    } else if (EINVAL != status && status != EINTR && status != EAGAIN) {
+    //if (status != -1) {
+    //    OUTPUT_DEBUG_STDERR(stderr, "%s", "bad signals");
+    //    exit(status);
+    //} else if (EINVAL != status && status != EINTR && status != EAGAIN) {
         OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNAL RECEIVED");
         struct updateArgs *dbArgs = updateHash[idx];
-        writeUpdate(dbArgs->frequency, dbArgs->timeinfo, dbArgs->nbyte);
-    }
+        if (dbArgs != NULL) {
+            writeUpdate(dbArgs->frequency, dbArgs->timeinfo, dbArgs->nbyte);
+        }
+    //}
     free((void *) dateDecoded);
 }
 
