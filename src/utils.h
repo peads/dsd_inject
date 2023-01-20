@@ -57,7 +57,7 @@
 #define SIX_DAYS_IN_SECONDS 518400
 #define INSERT_FREQUENCY_INFO "INSERT INTO frequencydata (frequency) VALUES (%s);"
 #define INSERT_FREQUENCY "insert into frequencydata (`frequency`) values (?) on duplicate key update `date_modified`=NOW();"
-#define UPDATE_FREQUENCY "update LOW_PRIORITY imbedata  set date_decoded=?, frequency=? where `date_recorded`=?;"
+#define UPDATE_FREQUENCY "UPDATE LOW_PRIORITY imbedata SET `date_decoded`=?, `frequency`=? WHERE `date_decoded`=?;"
 #define UPDATE_FREQUENCY_INFO "UPDATE imbedata SET date_decoded=%s, frequency=%s WHERE date_recorded=%s;"
 #define INSERT_DATA "INSERT INTO imbedata (date_recorded, data) VALUES (?, ?);"
 #define INSERT_INFO "INSERT INTO imbedata (date_recorded, data) VALUES (%s, (data of size: %zu));"
