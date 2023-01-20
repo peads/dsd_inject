@@ -144,83 +144,72 @@ void *startUpdatingFrequency(void *ctx) {
         return NULL;
     }
 
+    updateStartTime = time(NULL);
     isRunning = 1;
-    struct insertArgs *iargs = (struct insertArgs *) ctx;
-    char *portname = iargs->buf;
+    struct insertArgs *args = (struct insertArgs *) ctx;
+    char *portname = args->buf;
     unsigned long size = 6 + strchr(portname, '\0') - ((char *) portname);
     char cmd[size];
     strcpy(cmd, portname);
     strcat(cmd, " 2>&1");
-    OUTPUT_DEBUG_STDERR(stderr, "%s size: %lu\n", cmd, size);
+    fprintf(stderr, "%s size: %lu\n", cmd, size);
 
     fd = popen(cmd, "r");
     if (fd == NULL) {
         exit(-1);
     }
 
-    free(ctx);
     int ret;
 
     do {
+        struct updateArgs *args = malloc(sizeof(struct updateArgs));
+        args->frequency = malloc(8 * sizeof(char));
+        args->timeinfo = malloc(sizeof(struct tm));
+
+        struct tm *timeinfo = malloc(sizeof(*timeinfo));
         int *year = malloc(sizeof(int *));
         int *month = malloc(sizeof(int *));
         int *mantissa = malloc(sizeof(int *));
         int *characteristic = malloc(sizeof(int *));
-        int *tzHours = malloc(sizeof(int *));
-        int *tzMin = malloc(sizeof(int *));
-        int *day = malloc(sizeof(int *));
-        int *hour = malloc(sizeof(int *));
-        int *min = malloc(sizeof(int *));
-        int *sec = malloc(sizeof(int *));
-        
+        int *tzHours = malloc(sizeof(int));
+        int *tzMin = malloc(sizeof(int));
+
         ret = fscanf(fd, "%d-%d-%dT%d:%d:%d+%d:%d;%d.%d\n",
                      year,
                      month,
-                     day,
-                     hour,
-                     min,
-                     sec,
+                     &timeinfo->tm_mday,
+                     &timeinfo->tm_hour,
+                     &timeinfo->tm_min,
+                     &timeinfo->tm_sec,
                      tzHours,
                      tzMin,
                      characteristic,
                      mantissa);
 
         OUTPUT_DEBUG_STDERR(stderr, "vars set: %d\n", ret);
-        
-        if (ret == 10) {
-            
-            struct updateArgs *args = malloc(sizeof(struct updateArgs));
-            args->frequency = malloc(8 * sizeof(char));
-            args->timeinfo = malloc(sizeof(struct tm));
 
-            args->timeinfo->tm_year = *year - 1900;
-            args->timeinfo->tm_mon = *month - 1;
-            args->timeinfo->tm_mday = *day;
-            args->timeinfo->tm_hour = *hour;
-            args->timeinfo->tm_min = *min;
-            args->timeinfo->tm_sec = *sec;
-            args->timeinfo->tm_isdst = 0;
+        timeinfo->tm_year = *year - 1900;
+        timeinfo->tm_mon = *month - 1;
+        timeinfo->tm_isdst = 0;
 
-            char frequency[8];
-            sprintf(frequency, "Frequncy read: %d.%d\n", *characteristic, *mantissa);
+        char frequency[8];
+        sprintf(frequency, "%d.%d", *characteristic, *mantissa);
 
-            OUTPUT_DEBUG_STDERR(stderr, "Size of string: %ld", 1 + strchr(frequency, '\0') - frequency);
-            //unsigned long nbyte = 8;
+        OUTPUT_DEBUG_STDERR(stderr, "Size of string: %ld", 1 + strchr(frequency, '\0') - frequency);
+        //unsigned long nbyte = 8;
 
-            unsigned long last = strchr(frequency, '\0') - frequency;
-            unsigned long nbyte = 1 + last;
-            char freq[nbyte];
-            strcpy(freq, frequency);
-            freq[last] = '\0';
-            args->nbyte = nbyte;
-            args->frequency = freq;
-            
-            time_t idx = (mktime(args->timeinfo) - updateStartTime) % SIX_DAYS_IN_SECONDS;
-            char buffer[26];
-            strftime(buffer, 26, "%Y-%m-%dT%H:%M:%S%:%z\n", args->timeinfo);
-            fprintf(stderr, 
-                "inject::startUpdatingFrequency Struct added to hash at: %ld, %s\n", idx, buffer);
-            updateHash[idx] = args;
+        unsigned long last = strchr(frequency, '\0') - frequency;
+        unsigned long nbyte = 1 + last;
+        char freq[nbyte];
+        strcpy(freq, frequency);
+        freq[last] = '\0';
+        args->nbyte = nbyte;
+        args->frequency = freq;
+
+        if (ret != 10) {
+            time_t idx = mktime(timeinfo) - updateStartTime;
+            updateHash[idx >= 0 ? (idx % SIX_DAYS_IN_SECONDS) : 0] = args;
+            fprintf(stderr, "Struct added to hash at: %ld\n", idx);
         } else {
             free(year);
             free(month);
@@ -228,14 +217,12 @@ void *startUpdatingFrequency(void *ctx) {
             free(characteristic);
             free(tzHours);
             free(tzMin);
-            free(day);
-            free(hour);
-            free(min);
-            free(sec);
+            free(args->timeinfo);
+            free(args);
         }
     } while (isRunning && ret != EOF);
 
-    pthread_exit(&iargs->pid);
+    pthread_exit(&args->pid);
 }
 
 ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
