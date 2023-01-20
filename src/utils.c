@@ -219,13 +219,13 @@ void *notifyInsertThread(void *ctx) {
             OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNALS AWAY"); 
             updateHash[idx] = args;
             OUTPUT_DEBUG_STDERR(stderr, "Struct added to hash at: %ld", idx);
-            pthread_kill(pid, SIGUSR2);
+            //pthread_kill(pid, SIGUSR2);
             return NULL;
         }
 
         sleep(1);
         OUTPUT_DEBUG_STDERR(stderr, "notifyInsertThread :: Waited: %d seconds", i);
-    } while (pid <= 0 && i++ < 5);
+    } while (pid <= 0 && i++ < 30);
     
     OUTPUT_INFO_STDERR(stderr, "%s", "notifyInsertThread :: Failed notification for update");
     pthread_exit(&nargs->pid);
@@ -233,19 +233,19 @@ void *notifyInsertThread(void *ctx) {
 
 void *waitForUpdate(void *ctx) {
     time_t idx = *((time_t *) ctx);
-    sigset_t set;
+    //sigset_t set;
 
-    sigemptyset(&set);
-    sigaddset(&set, SIGUSR2);
+    //sigemptyset(&set);
+    //sigaddset(&set, SIGUSR2);
     
-    int status = pthread_sigmask(SIG_BLOCK, &set, NULL);
-    if (status != 0) {
-        exit(-1);
-    }
+    //int status = pthread_sigmask(SIG_BLOCK, &set, NULL);
+    //if (status != 0) {
+    //    exit(-1);
+    //}
     
-    status = sigwaitinfo(&set, NULL);
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNAL RECEIVED");
-    status = pthread_sigmask(SIG_UNBLOCK, &set, NULL);
+    //status = sigwaitinfo(&set, NULL);
+    //OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNAL RECEIVED");
+    //status = pthread_sigmask(SIG_UNBLOCK, &set, NULL);
    
     int i = 0; 
     struct updateArgs *dbArgs;
@@ -270,7 +270,7 @@ void *waitForUpdate(void *ctx) {
         }
         sleep(1);
         OUTPUT_DEBUG_STDERR(stderr, "waitForUpdate :: Waited: %d seconds", i);
-    } while (NULL == dbArgs && i++ < 5);
+    } while (NULL == dbArgs && i++ < 30);
 
     OUTPUT_INFO_STDERR(stderr, "%s", "waitForUpdate :: Failed waiting to update");
     return NULL;
