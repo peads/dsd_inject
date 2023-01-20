@@ -111,11 +111,8 @@ void *run(void *ctx) {
 
     struct insertArgs *args = (struct insertArgs *) ctx;
     const time_t insertTime = time(NULL);
-    time_t idx = (insertTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
 
     sem_wait(&sem);
-    pidHash[idx] = args->pid;
-    OUTPUT_DEBUG_STDERR(stderr, "run :: pid: %lu @ INDEX: %lu", pidHash[idx], idx);
 
     writeInsertToDatabase(insertTime, args->buf, args->nbyte);
 
@@ -165,12 +162,12 @@ void *notifyInsertThread(void *ctx) {
 
     do {
         pid = pidHash[idx];
-        OUTPUT_DEBUG_STDERR(stderr, "Searching pid: %lu @ %lu", pid, idx);
+        OUTPUT_DEBUG_STDERR(stderr, "Searching pid: %lu at: %lu", pid, idx);
         if (pid > 0 ) {
 
             OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNALS AWAY"); 
             updateHash[idx] = args;
-            OUTPUT_DEBUG_STDERR(stderr, "Struct added to hash @ %ld", idx);
+            OUTPUT_DEBUG_STDERR(stderr, "Struct added to hash at: %ld", idx);
             pthread_kill(pid, SIGUSR2);
             break;
         } else {

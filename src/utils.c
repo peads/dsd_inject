@@ -173,31 +173,42 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
 
 void *waitForUpdate(void *ctx) {
     time_t idx = *((time_t *) ctx);
-
     sigset_t set;
 
     sigemptyset(&set);
     sigaddset(&set, SIGUSR2);
     
     int status = pthread_sigmask(SIG_BLOCK, &set, NULL);
-    time_t spects = time(NULL) + 5;
-    struct timespec *spec = malloc(sizeof(struct timespec));
-    
-    spec->tv_sec = spects ;
-    spec->tv_nsec = 1000000000*spects;
-
-    status = sigtimedwait(&set, NULL, spec);
-
-    OUTPUT_DEBUG_STDERR(stderr, "Wait status returned %d", status);
-    OUTPUT_DEBUG_STDERR(stderr, "writeInsertToDatabase :: pid: %lu @ INDEX: %lu", pidHash[idx], idx);
-
-    struct updateArgs *dbArgs = updateHash[idx];
-
-    if (dbArgs != NULL) {
-        OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNAL RECEIVED");
-        OUTPUT_DEBUG_STDERR(stderr, "writeInsertToDatabase :: DATE: %d-%d-%dT%d:%d:%d", dbArgs->timeinfo.tm_year + 1900, dbArgs->timeinfo.tm_mon + 1, dbArgs->timeinfo.tm_mday, dbArgs->timeinfo.tm_hour, dbArgs->timeinfo.tm_min, dbArgs->timeinfo.tm_sec);
-        writeUpdate(dbArgs->frequency, &dbArgs->timeinfo, dbArgs->nbyte);
+    if (status != 0) {
+        exit(-1);
     }
+    
+    status = sigwaitinfo(&set, NULL);
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNAL RECEIVED");
+    status = pthread_sigmask(SIG_UNBLOCK, &set, NULL);
+   
+    int i = 0; 
+    struct updateArgs *dbArgs;
+    struct timespec *spec = malloc(sizeof(struct timespec));
+    do {
+        OUTPUT_DEBUG_STDERR(stderr, "writeInsertToDatabase :: pid: %lu @ INDEX: %lu", pidHash[idx], idx);
+        time_t spects = time(NULL) + 1;
+        spec->tv_sec = spects ;
+        spec->tv_nsec = 1000000000*spects;
+
+        status = sigtimedwait(&set, NULL, spec);
+        dbArgs = updateHash[idx];
+
+        OUTPUT_DEBUG_STDERR(stderr, "Wait status returned %d", status);
+
+        if (dbArgs != NULL) {
+            OUTPUT_DEBUG_STDERR(stderr, "writeInsertToDatabase :: DATE: %d-%d-%dT%d:%d:%d", dbArgs->timeinfo.tm_year + 1900, dbArgs->timeinfo.tm_mon + 1, dbArgs->timeinfo.tm_mday, dbArgs->timeinfo.tm_hour, dbArgs->timeinfo.tm_min, dbArgs->timeinfo.tm_sec);
+            writeUpdate(dbArgs->frequency, &dbArgs->timeinfo, dbArgs->nbyte);
+            return NULL;
+        }
+
+        i++;
+    } while (NULL == dbArgs && i < 5);
 
     return NULL;
 }
@@ -259,7 +270,8 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
     pthread_t pid = 0;
     pthread_create(&pid, NULL, waitForUpdate, &idx);
     pthread_detach(pid);
-
+    pidHash[idx] = pid;
+    OUTPUT_DEBUG_STDERR(stderr, "pid: %lu @ INDEX: %lu", pid, idx);
     free((void *) dateDecoded);
 }
 
