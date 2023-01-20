@@ -223,10 +223,11 @@ void writeInsertToDatabase(void *buf, size_t nbyte) {
     time_t idx = (insertTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
     OUTPUT_DEBUG_STDERR(stderr, "Index: %lu", idx);
 
-    sem_wait(&semRw);
-    struct updateArgs *dbArgs = updateHash[idx];
-    writeUpdate(dbArgs->frequency, dbArgs->timeinfo, dbArgs->nbyte);
-    sem_post(&semRw);
+    if (sem_trywait(&semRw) == 0) {
+        struct updateArgs *dbArgs = updateHash[idx];
+        writeUpdate(dbArgs->frequency, dbArgs->timeinfo, dbArgs->nbyte);
+        sem_post(&semRw);
+    }
 
 
     free((void *) dateDecoded);
