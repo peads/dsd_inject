@@ -167,32 +167,32 @@ void *startUpdatingFrequency(void *ctx) {
         struct updateArgs *args = malloc(sizeof(struct updateArgs));
 
         struct tm timeinfo;
-        int *year = malloc(sizeof(int *));
-        int *month = malloc(sizeof(int *));
-        int *mantissa = malloc(sizeof(int *));
-        int *characteristic = malloc(sizeof(int *));
-        int *tzHours = malloc(sizeof(int));
-        int *tzMin = malloc(sizeof(int));
+        int year = 0;
+        int month = 0;
+        int mantissa = 0;
+        int characteristic = 0;
+        int tzHours = 0;
+        int tzMin = 0;
 
         ret = fscanf(fd, "%d-%d-%dT%d:%d:%d+%d:%d;%d.%d\n",
-                     year,
-                     month,
+                     &year,
+                     &month,
                      &timeinfo.tm_mday,
                      &timeinfo.tm_hour,
                      &timeinfo.tm_min,
                      &timeinfo.tm_sec,
-                     tzHours,
-                     tzMin,
-                     characteristic,
-                     mantissa);
+                     &tzHours,
+                     &tzMin,
+                     &characteristic,
+                     &mantissa);
         OUTPUT_DEBUG_STDERR(stderr, "vars set: %d\n", ret);
 
         if (ret == 10) {
             time_t loopTime = mktime(&timeinfo);
             OUTPUT_DEBUG_STDERR(stderr, "DELTA TIME: %ld", loopTime - updateStartTime);
 
-            timeinfo.tm_year = *year - 1900;
-            timeinfo.tm_mon = *month - 1;
+            timeinfo.tm_year = year - 1900;
+            timeinfo.tm_mon = month - 1;
             timeinfo.tm_isdst = 0;
             
             args->timeinfo = timeinfo;
@@ -220,17 +220,7 @@ void *startUpdatingFrequency(void *ctx) {
             nargs->pid = 0;
             pthread_create(&nargs->pid, NULL, notifyInsertThread, nargs);
             pthread_detach(nargs->pid);
-        } else {
-            free(year);
-            free(month);
-            free(mantissa);
-            free(characteristic);
-            free(tzHours);
-            free(tzMin);
-            //free(args->timeinfo);
-            free(args);
         }
-
     } while (isRunning && ret != EOF);
 
     pthread_exit(&args->pid);
