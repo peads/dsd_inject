@@ -26,7 +26,7 @@ extern char *db_user;
 extern char *schema;
 
 time_t updateStartTime;
-struct updateArgs *updateHash[SIX_DAYS_IN_SECONDS];
+struct updateArgs *updateHash[SIX_DAYS_IN_SECONDS] = {NULL};
 int isRunning = 0;
 FILE *fd;
 
@@ -217,11 +217,16 @@ void writeInsertToDatabase(void *buf, size_t nbyte) {
 
     time_t idx = (insertTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
     OUTPUT_DEBUG_STDERR(stderr, "Index: %lu", idx);
-    //struct updateArgs *dbArgs = updateHash[idx];
-    //strftime(buffer, 26, "%Y-%m-%dT%H:%M:%S:%z\n", dbArgs->timeinfo);
-    //fprintf(stderr, "Using function pointer to call update with time: %s", buffer);
-
-    //writeUpdate(dbArgs->frequency, dbArgs->timeinfo, dbArgs->nbyte);
+    struct updateArgs *dbArgs = updateHash[idx];
+    if (dbArgs != NULL) {
+        fprintf(stderr, 
+            "inject::writeInsertToDatabase Struct added to hash at: %ld, %s\n", idx, buffer);
+        struct updateArgs *dbArgs = malloc(sizeof(struct updateArgs));
+        dbArgs->frequency = NULL;
+        updateHash[idx] = dbArgs;
+    } else {
+        //writeUpdate(dbArgs->frequency, dbArgs->timeinfo, dbArgs->nbyte);
+    }
 
     free((void *) dateDecoded);
 }

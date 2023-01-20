@@ -19,8 +19,6 @@
 //
 
 #include "utils.h"
-#include <semaphore.h>
-
 
 extern time_t updateStartTime;
 extern struct updateArgs *updateHash[];
@@ -166,7 +164,7 @@ void *startUpdatingFrequency(void *ctx) {
         args->frequency = malloc(8 * sizeof(char));
         args->timeinfo = malloc(sizeof(struct tm));
 
-        struct tm *timeinfo = malloc(sizeof(*timeinfo));
+        struct tm *timeinfo = args->timeinfo;
         int *year = malloc(sizeof(int *));
         int *month = malloc(sizeof(int *));
         int *mantissa = malloc(sizeof(int *));
@@ -209,10 +207,16 @@ void *startUpdatingFrequency(void *ctx) {
             args->frequency = freq;
 
                 time_t idx = (mktime(timeinfo) - updateStartTime) % SIX_DAYS_IN_SECONDS;
-                char buffer[26];
-                strftime(buffer, 26, "%Y-%m-%dT%H:%M:%S%:%z\n", timeinfo);
-                fprintf(stderr, "Struct added to hash at: %ld, %s\n", idx, buffer);
-                updateHash[idx >= 0 ? idx : 0] = args;
+                struct updateArgs *dbArgs = updateHash[idx];
+                if (dbArgs != NULL) {
+                    //writeUpdate(freq, timeinfo, nbyte); 
+                } else {
+                    char buffer[26];
+                    strftime(buffer, 26, "%Y-%m-%dT%H:%M:%S%:%z\n", timeinfo);
+                    fprintf(stderr, 
+                        "inject::startUpdatingFrequency Struct added to hash at: %ld, %s\n", idx, buffer);
+                    updateHash[idx] = args;
+                }
             } else {
                 free(year);
                 free(month);

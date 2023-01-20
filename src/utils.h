@@ -44,6 +44,8 @@
 #define OUTPUT_DEBUG_STDERR(file, msg, subs ...)  fprintf(file, msg "\n", subs)
 #endif
 
+#include <semaphore.h>
+
 #if !(defined(DEBUG) || defined(TRACE))
 #define OUTPUT_INFO_STDERR(file, msg, subs ...)  //
 #else
@@ -92,7 +94,7 @@ struct updateArgs {
 //
 //void *startUpdatingFrequency(void *argv);
 //
-//void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte);
+void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte);
 //
 void writeInsertToDatabase(void *buf, size_t nbyte);
 #endif //UTILS_H
