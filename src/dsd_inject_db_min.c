@@ -180,6 +180,7 @@ void *startUpdatingFrequency(void *ctx) {
         int *tzHours = malloc(sizeof(int));
         int *tzMin = malloc(sizeof(int));
 
+        sem_wait(&semRw);
         ret = fscanf(fd, "%d-%d-%dT%d:%d:%d+%d:%d;%d.%d\n",
                      year,
                      month,
@@ -191,7 +192,6 @@ void *startUpdatingFrequency(void *ctx) {
                      tzMin,
                      characteristic,
                      mantissa);
-        sem_wait(&semRw);
 
         OUTPUT_DEBUG_STDERR(stderr, "vars set: %d\n", ret);
 
@@ -239,7 +239,7 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
         initializeEnv();
         initializeSignalHandlers();
         sem_init(&sem, 0, SEM_RESOURCES);
-        sem_init($semRw, 0, 1);
+        sem_init(&semRw, 0, 1);
  
         fprintf(stderr, "%s", "wrapping write\n");
         next_write = dlsym(RTLD_NEXT, "write");

@@ -24,6 +24,7 @@ extern char *db_pass;
 extern char *db_host;
 extern char *db_user;
 extern char *schema;
+extern sem_t semRw;
 
 time_t updateStartTime;
 struct updateArgs *updateHash[SIX_DAYS_IN_SECONDS] = {NULL};
