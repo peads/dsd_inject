@@ -198,7 +198,7 @@ void *startUpdatingFrequency(void *ctx) {
             args->timeinfo = timeinfo;
             
             char frequency[8];
-            sprintf(frequency, "%d.%d", *characteristic, *mantissa);
+            sprintf(frequency, "%d.%d", characteristic, mantissa);
 
             OUTPUT_DEBUG_STDERR(stderr, "Size of string: %ld\n", 1 + strchr(frequency, '\0') - frequency);
             //unsigned long nbyte = 8;
