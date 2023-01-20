@@ -52,7 +52,7 @@
 #define OUTPUT_INFO_STDERR(file, msg, subs ...)  fprintf(file, msg "\n", subs)
 #endif
 
-#define SEM_RESOURCES 8
+#define SEM_RESOURCES 128
 #define LENGTH_OF(arr) (sizeof(arr) / sizeof(*(arr)))
 #define SIX_DAYS_IN_SECONDS 518400
 #define INSERT_FREQUENCY_INFO "INSERT INTO frequencydata (frequency) VALUES (%s);"

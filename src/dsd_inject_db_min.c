@@ -24,7 +24,6 @@ extern time_t updateStartTime;
 extern int isRunning;
 extern FILE *fd;
 
-pthread_t pidHash[SIX_DAYS_IN_SECONDS] = {0};
 struct updateArgs *updateHash[SIX_DAYS_IN_SECONDS] = {NULL};
 const char *db_pass;
 const char *db_host;

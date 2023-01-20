@@ -26,9 +26,9 @@ extern char *db_host;
 extern char *db_user;
 extern char *schema;
 
-extern pthread_t pidHash[];
 extern struct updateArgs *updateHash[];
 
+pthread_t pidHash[SIX_DAYS_IN_SECONDS] = {0};
 time_t updateStartTime;
 int isRunning = 0;
 FILE *fd;
@@ -220,13 +220,14 @@ void *notifyInsertThread(void *ctx) {
             updateHash[idx] = args;
             OUTPUT_DEBUG_STDERR(stderr, "Struct added to hash at: %ld", idx);
             pthread_kill(pid, SIGUSR2);
-            break;
+            return NULL;
         }
 
         sleep(1);
         OUTPUT_DEBUG_STDERR(stderr, "notifyInsertThread :: Waited: %d seconds", i);
-        i++;
-    } while (pid <= 0 && i < 5);
+    } while (pid <= 0 && i++ < 5);
+    
+    OUTPUT_INFO_STDERR(stderr, "%s", "notifyInsertThread :: Failed notification for update");
     pthread_exit(&nargs->pid);
 }
 
@@ -250,7 +251,7 @@ void *waitForUpdate(void *ctx) {
     struct updateArgs *dbArgs;
 
     do {
-        OUTPUT_DEBUG_STDERR(stderr, "waitForUpdate :: pid: %lu @ INDEX: %lu", pidHash[idx], idx);
+        OUTPUT_INFO_STDERR(stderr, "waitForUpdate :: pid: %lu @ INDEX: %lu", pidHash[idx], idx);
 
         dbArgs = updateHash[idx];
 
@@ -269,10 +270,9 @@ void *waitForUpdate(void *ctx) {
         }
         sleep(1);
         OUTPUT_DEBUG_STDERR(stderr, "waitForUpdate :: Waited: %d seconds", i);
+    } while (NULL == dbArgs && i++ < 5);
 
-        i++;
-    } while (NULL == dbArgs && i < 5);
-
+    OUTPUT_INFO_STDERR(stderr, "%s", "waitForUpdate :: Failed waiting to update");
     return NULL;
 }
 
@@ -334,7 +334,7 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
     pthread_create(&pid, NULL, waitForUpdate, &idx);
     pthread_detach(pid);
     pidHash[idx] = pid;
-    OUTPUT_DEBUG_STDERR(stderr, "writeInsertToDatabase :: pid: %lu @ INDEX: %lu", pid, idx);
+    OUTPUT_INFO_STDERR(stderr, "writeInsertToDatabase :: pid: %lu @ INDEX: %lu", pidHash[idx], idx);
     free((void *) dateDecoded);
 }
 
