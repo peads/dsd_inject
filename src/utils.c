@@ -238,13 +238,15 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
     status = sigtimedwait(&set, NULL, spec);
 
     if (status != -1) {
-        OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNAL RECEIVED");
         OUTPUT_DEBUG_STDERR(stderr, "Wait status returned %d for pid: %lu", status, pidHash[idx]);
-        struct updateArgs *dbArgs = updateHash[idx];
-        if (dbArgs != NULL) {
-            writeUpdate(dbArgs->frequency, &dbArgs->timeinfo, dbArgs->nbyte);
-        }
     }
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNAL RECEIVED");
+
+    struct updateArgs *dbArgs = updateHash[idx];
+    if (dbArgs != NULL && dbArgs->timeinfo.year >= timeinfo.year) {
+        writeUpdate(dbArgs->frequency, &dbArgs->timeinfo, dbArgs->nbyte);
+    }
+
     free((void *) dateDecoded);
 }
 
