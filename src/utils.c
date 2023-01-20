@@ -107,7 +107,7 @@ void writeFrequencyPing(char *frequency, unsigned long nbyte) {
 
     unsigned long length = LENGTH_OF(INSERT_FREQUENCY);
     OUTPUT_DEBUG_STDERR(stderr, "Insert length of string: %u", length);
-    OUTPUT_INFO_STDERR(stderr, "writeFrequencyPing :: "  INSERT_FREQUENCY_INFO, frequency);
+    OUTPUT_DEBUG_STDERR(stderr, "writeFrequencyPing :: "  INSERT_FREQUENCY_INFO, frequency);
 
     stmt = generateMySqlStatment(INSERT_FREQUENCY, conn, length);
 
@@ -156,8 +156,14 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     bind[1].buffer_length = nbyte;
     bind[1].length = &nbyte;
     bind[1].is_null = 0;
+    
+    bind[2].buffer_type = MYSQL_TYPE_DECIMAL;
+    bind[2].buffer = frequency;
+    bind[2].buffer_length = nbyte;
+    bind[2].length = &nbyte;
+    bind[2].is_null = 0;
 
-    memcpy(&bind[2], &bind[0], sizeof(MYSQL_BIND));
+    //memcpy(&bind[2], &bind[0], sizeof(MYSQL_BIND));
     const char *dateString = "%04d-%02d-%02d %02d:%02d:%02d"; 
     MYSQL_TIME *ts = bind[0].buffer;
     OUTPUT_DEBUG_STDERR(stderr, 
@@ -169,7 +175,7 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     ts = bind[2].buffer;
     sprintf(buffer, dateString,ts->year, ts->month, ts->day,
                  ts->hour, ts->minute, ts->second);
-    OUTPUT_INFO_STDERR(stderr, 
+    OUTPUT_DEBUG_STDERR(stderr, 
         "writeUpdate :: " UPDATE_FREQUENCY_INFO, 
         buffer, frequency, buffer);
 
@@ -218,7 +224,7 @@ void *notifyInsertThread(void *ctx) {
         }
 
         sleep(1);
-        OUTPUT_INFO_STDERR(stderr, "notifyInsertThread :: Waited: %d seconds", i);
+        OUTPUT_DEBUG_STDERR(stderr, "notifyInsertThread :: Waited: %d seconds", i);
         i++;
     } while (pid <= 0 && i < 5);
     pthread_exit(&nargs->pid);
@@ -244,14 +250,14 @@ void *waitForUpdate(void *ctx) {
     struct updateArgs *dbArgs;
 
     do {
-        OUTPUT_INFO_STDERR(stderr, "waitForUpdate :: pid: %lu @ INDEX: %lu", pidHash[idx], idx);
+        OUTPUT_DEBUG_STDERR(stderr, "waitForUpdate :: pid: %lu @ INDEX: %lu", pidHash[idx], idx);
 
         dbArgs = updateHash[idx];
 
         OUTPUT_DEBUG_STDERR(stderr, "Wait status returned %d", status);
 
         if (dbArgs != NULL) {
-            OUTPUT_INFO_STDERR(stderr, "waitForUpdate :: DATE: %d-%d-%dT%d:%d:%d", 
+            OUTPUT_DEBUG_STDERR(stderr, "waitForUpdate :: DATE: %d-%d-%dT%d:%d:%d", 
                 dbArgs->timeinfo.tm_year + 1900, 
                 dbArgs->timeinfo.tm_mon + 1, 
                 dbArgs->timeinfo.tm_mday, 
@@ -262,7 +268,7 @@ void *waitForUpdate(void *ctx) {
             return NULL;
         }
         sleep(1);
-        OUTPUT_INFO_STDERR(stderr, "waitForUpdate :: Waited: %d seconds", i);
+        OUTPUT_DEBUG_STDERR(stderr, "waitForUpdate :: Waited: %d seconds", i);
 
         i++;
     } while (NULL == dbArgs && i < 5);
@@ -307,7 +313,7 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
 
     unsigned long length = LENGTH_OF(INSERT_DATA) ;
     OUTPUT_DEBUG_STDERR(stderr, "Length of string: %lu", length);
-    fprintf(stderr, INSERT_INFO "\n", buffer, nbyte);
+    OUTPUT_DEBUG_STDERR(stderr, INSERT_INFO "\n", buffer, nbyte);
     
     stmt = generateMySqlStatment(INSERT_DATA, conn, length);
 
@@ -328,7 +334,7 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
     pthread_create(&pid, NULL, waitForUpdate, &idx);
     pthread_detach(pid);
     pidHash[idx] = pid;
-    OUTPUT_INFO_STDERR(stderr, "writeInsertToDatabase :: pid: %lu @ INDEX: %lu", pid, idx);
+    OUTPUT_DEBUG_STDERR(stderr, "writeInsertToDatabase :: pid: %lu @ INDEX: %lu", pid, idx);
     free((void *) dateDecoded);
 }
 

@@ -154,8 +154,8 @@ void *startUpdatingFrequency(void *ctx) {
     unsigned long size = 6 + strchr(portname, '\0') - ((char *) portname);
     char cmd[size];
     strcpy(cmd, portname);
-    //strcat(cmd, " 2>&1");
-    fprintf(stderr, "%s size: %lu\n", cmd, size);
+
+    OUTPUT_DEBUG_STDERR(stderr, "%s size: %lu", cmd, size);
 
     fd = popen(cmd, "r");
     if (fd == NULL) {
