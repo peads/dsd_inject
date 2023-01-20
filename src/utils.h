@@ -95,7 +95,7 @@ struct updateArgs {
 //void *startUpdatingFrequency(void *argv);
 //
 void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte);
-//
-void writeInsertToDatabase(void *buf, size_t nbyte);
+
+void writeInsertToDatabase(time_t time, void *buf, size_t nbyte);
 #endif //UTILS_H
 

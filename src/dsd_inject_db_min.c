@@ -21,17 +21,18 @@
 #include "utils.h"
 
 extern time_t updateStartTime;
-extern struct updateArgs *updateHash[];
 extern int isRunning;
 extern FILE *fd;
 
+pthread_t pidHash[SIX_DAYS_IN_SECONDS] = {0};
+struct updateArgs *updateHash[SIX_DAYS_IN_SECONDS] = {NULL};
 const char *db_pass;
 const char *db_host;
 const char *db_user;
 const char *schema;
 
 static sem_t sem;
-sem_t semRw;
+
 
 static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
 
@@ -108,10 +109,15 @@ void initializeEnv() {
 void *run(void *ctx) {
 
     struct insertArgs *args = (struct insertArgs *) ctx;
+    const time_t insertTime = time(NULL);
+    time_t idx = (insertTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
+    pidHash[idx] = args->pid;
+    OUTPUT_DEBUG_STDERR(stderr, "pid: %lu @ INDEX: %lu", args->pid, idx);
+
 
     sem_wait(&sem);
 
-    writeInsertToDatabase(args->buf, args->nbyte);
+    writeInsertToDatabase(insertTime, args->buf, args->nbyte);
 
     sem_post(&sem);
 
@@ -131,12 +137,6 @@ static void onExit(void) {
         fprintf(stderr, "%s", "semaphore destroyed\n");
     }
 
-    if ((status = sem_close(&semRw)) != 0) {
-        fprintf(stderr, "unable to unlink semaphore. status: %s\n", strerror(status));
-    } else {
-        fprintf(stderr, "%s", "semaphore destroyed\n");
-    }
-
     if ((status = pclose(fd)) != 0) {
         fprintf(stderr, "Error closing awk script. status %s\n", strerror(status));
     }
@@ -149,7 +149,7 @@ void *startUpdatingFrequency(void *ctx) {
     if (isRunning) {
         return NULL;
     }
-
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering inject::startUpdatingFrequency");
     updateStartTime = time(NULL);
     isRunning = 1;
     struct insertArgs *args = (struct insertArgs *) ctx;
@@ -180,7 +180,6 @@ void *startUpdatingFrequency(void *ctx) {
         int *tzHours = malloc(sizeof(int));
         int *tzMin = malloc(sizeof(int));
 
-        sem_wait(&semRw);
         ret = fscanf(fd, "%d-%d-%dT%d:%d:%d+%d:%d;%d.%d\n",
                      year,
                      month,
@@ -192,12 +191,12 @@ void *startUpdatingFrequency(void *ctx) {
                      tzMin,
                      characteristic,
                      mantissa);
-
         OUTPUT_DEBUG_STDERR(stderr, "vars set: %d\n", ret);
 
         timeinfo->tm_year = *year - 1900;
         timeinfo->tm_mon = *month - 1;
         timeinfo->tm_isdst = 0;
+        time_t loopTime = mktime(timeinfo);
 
         char frequency[8];
         sprintf(frequency, "%d.%d", *characteristic, *mantissa);
@@ -213,10 +212,16 @@ void *startUpdatingFrequency(void *ctx) {
         args->nbyte = nbyte;
         args->frequency = freq;
 
-        if (ret != 10) {
-            time_t idx = (mktime(timeinfo) - updateStartTime) % SIX_DAYS_IN_SECONDS;
-            updateHash[idx] = args;
-            fprintf(stderr, "Struct added to hash at: %ld\n", idx);
+        if (ret == 10) {
+            time_t idx = (loopTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
+            pthread_t pid = pidHash[idx];
+            OUTPUT_DEBUG_STDERR(stderr, "Searching pid: %lu at: %lu", pid, idx);
+            if (pid != 0) {
+                OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNALS AWAY"); 
+                updateHash[idx] = args;
+                fprintf(stderr, "Struct added to hash at: %ld\n", idx);
+                pthread_kill(pid, SIGUSR1);
+            }   
         } else {
             free(year);
             free(month);
@@ -227,7 +232,7 @@ void *startUpdatingFrequency(void *ctx) {
             free(args->timeinfo);
             free(args);
         }
-        sem_post(&semRw);
+
     } while (isRunning && ret != EOF);
 
     pthread_exit(&args->pid);
@@ -239,7 +244,7 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
         initializeEnv();
         initializeSignalHandlers();
         sem_init(&sem, 0, SEM_RESOURCES);
-        sem_init(&semRw, 0, 1);
+
  
         fprintf(stderr, "%s", "wrapping write\n");
         next_write = dlsym(RTLD_NEXT, "write");

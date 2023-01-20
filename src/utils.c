@@ -24,10 +24,11 @@ extern char *db_pass;
 extern char *db_host;
 extern char *db_user;
 extern char *schema;
-extern sem_t semRw;
+
+extern pthread_t pidHash[];
+extern struct updateArgs *updateHash[];
 
 time_t updateStartTime;
-struct updateArgs *updateHash[SIX_DAYS_IN_SECONDS] = {NULL};
 int isRunning = 0;
 FILE *fd;
 
@@ -170,10 +171,22 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     mysql_close(conn);
 }
 
-void writeInsertToDatabase(void *buf, size_t nbyte) {
+void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
 
-    const time_t insertTime = time(NULL);
+    //const time_t insertTime = time(NULL);
+    time_t idx = (insertTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
+    //OUTPUT_DEBUG_STDERR(stderr, "Index: %lu", idx);
+    //pidHash[idx] = args->pid;
     int status = 0;
+    sigset_t set;
+
+    sigemptyset(&set);
+    sigaddset(&set, SIGUSR1);
+    status = pthread_sigmask(SIG_BLOCK, &set, NULL);
+    
+    if (status != 0) {
+        exit(-1);
+    }
 
     MYSQL_BIND bind[2];
     MYSQL_STMT *stmt;
@@ -220,15 +233,14 @@ void writeInsertToDatabase(void *buf, size_t nbyte) {
     mysql_stmt_close(stmt);
     mysql_close(conn);
 
-    time_t idx = (insertTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
-    OUTPUT_DEBUG_STDERR(stderr, "Index: %lu", idx);
-
-    if (sem_trywait(&semRw) == 0) {
-        struct updateArgs *dbArgs = updateHash[idx];
-        writeUpdate(dbArgs->frequency, dbArgs->timeinfo, dbArgs->nbyte);
-        sem_post(&semRw);
+    int sig;
+    status = sigwait(&set, &sig);
+    if (sig != 0) {
+        exit(sig);
     }
-
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNAL RECEIVED");
+    struct updateArgs *dbArgs = updateHash[idx];
+    writeUpdate(dbArgs->frequency, dbArgs->timeinfo, dbArgs->nbyte);
 
     free((void *) dateDecoded);
 }
