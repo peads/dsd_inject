@@ -38,7 +38,7 @@ void doExit(MYSQL *con) {
     if (con != NULL) {
         mysql_close(con);
     }
-    exit(1);
+    exit(-1);
 }
 
 MYSQL *initializeMySqlConnection() {
@@ -178,7 +178,7 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
     sigset_t set;
 
     sigemptyset(&set);
-    sigaddset(&set, SIGUSR1);
+    sigaddset(&set, SIGUSR2);
     status = pthread_sigmask(SIG_BLOCK, &set, NULL);
     
     if (status != 0) {
@@ -233,16 +233,17 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
     struct timespec spec;
     clock_gettime(CLOCK_REALTIME, &spec);
     spec.tv_sec += 120;
+    spec.tv_nsec = 0;
 
     status = sigtimedwait(&set, NULL, &spec);
     if (EINVAL == status) {
         OUTPUT_DEBUG_STDERR(stderr, "%s", "bad signals");
         exit(status);
+    } else if (status != EINTR && status != EAGAIN) {
+        OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNAL RECEIVED");
+        struct updateArgs *dbArgs = updateHash[idx];
+        writeUpdate(dbArgs->frequency, dbArgs->timeinfo, dbArgs->nbyte);
     }
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNAL RECEIVED");
-    struct updateArgs *dbArgs = updateHash[idx];
-    writeUpdate(dbArgs->frequency, dbArgs->timeinfo, dbArgs->nbyte);
-
     free((void *) dateDecoded);
 }
 

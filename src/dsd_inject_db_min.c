@@ -56,7 +56,7 @@ void initializeSignalHandlers() {
 
     int sigs[] = {SIGABRT, SIGALRM, SIGFPE, SIGHUP, SIGILL,
                   SIGINT, SIGPIPE, SIGQUIT, SIGSEGV, SIGTERM,
-                  /*SIGUSR1,*/ SIGUSR2};
+                  /*SIGUSR1, SIGUSR2*/};
 
     int i = 0;
     for (; i < (int) LENGTH_OF(sigs); ++i) {
@@ -216,12 +216,30 @@ void *startUpdatingFrequency(void *ctx) {
             time_t idx = (loopTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
             pthread_t pid = pidHash[idx];
             OUTPUT_DEBUG_STDERR(stderr, "Searching pid: %lu at: %lu", pid, idx);
-            if (pid != 0) {
-                OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNALS AWAY"); 
-                updateHash[idx] = args;
-                fprintf(stderr, "Struct added to hash at: %ld\n", idx);
-                pthread_kill(pid, SIGUSR1);
-            }   
+            int i = 0;
+            struct timespec spec;
+            clock_gettime(CLOCK_REALTIME, &spec);
+            spec.tv_sec += 1;
+            spec.tv_nsec = 0;
+            
+            sigset_t set;
+
+            sigemptyset(&set);
+            sigaddset(&set, SIGUSR2);
+            /*status = */pthread_sigmask(SIG_BLOCK, &set, NULL);
+            do {
+                fprintf(stderr, "Waited: %d seconds", i);
+                if (pid > 0 ) {
+        
+                    OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNALS AWAY"); 
+                    updateHash[idx] = args;
+                    fprintf(stderr, "Struct added to hash at: %ld\n", idx);
+                    //pthread_kill(pid, SIGUSR2);
+                    break;
+                } else 
+                    sigtimedwait(&set, NULL, &spec);
+                i++;
+            } while ((pid = pidHash[idx]) <= 0 && i < 5);
         } else {
             free(year);
             free(month);
