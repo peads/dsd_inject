@@ -206,9 +206,8 @@ void *startUpdatingFrequency(void *ctx) {
 
     do {
         struct updateArgs *args = malloc(sizeof(struct updateArgs));
-        args->timeinfo = malloc(sizeof(struct tm));
 
-        struct tm *timeinfo = malloc(sizeof(*timeinfo));
+        struct tm timeinfo;
         int *year = malloc(sizeof(int *));
         int *month = malloc(sizeof(int *));
         int *mantissa = malloc(sizeof(int *));
@@ -219,21 +218,22 @@ void *startUpdatingFrequency(void *ctx) {
         ret = fscanf(fd, "%d-%d-%dT%d:%d:%d+%d:%d;%d.%d\n",
                      year,
                      month,
-                     &timeinfo->tm_mday,
-                     &timeinfo->tm_hour,
-                     &timeinfo->tm_min,
-                     &timeinfo->tm_sec,
+                     &timeinfo.tm_mday,
+                     &timeinfo.tm_hour,
+                     &timeinfo.tm_min,
+                     &timeinfo.tm_sec,
                      tzHours,
                      tzMin,
                      characteristic,
                      mantissa);
         OUTPUT_DEBUG_STDERR(stderr, "vars set: %d\n", ret);
 
-        timeinfo->tm_year = *year - 1900;
-        timeinfo->tm_mon = *month - 1;
-        timeinfo->tm_isdst = 0;
-        time_t loopTime = mktime(timeinfo);
-
+        timeinfo.tm_year = *year - 1900;
+        timeinfo.tm_mon = *month - 1;
+        timeinfo.tm_isdst = 0;
+        args->timeinfo = timeinfo;
+        time_t loopTime = mktime(&timeinfo);
+        fprintf(stderr, "DELTA TIME: %ld", loopTime - updateStartTime);
         char frequency[8];
         sprintf(frequency, "%d.%d", *characteristic, *mantissa);
 
@@ -263,7 +263,7 @@ void *startUpdatingFrequency(void *ctx) {
             free(characteristic);
             free(tzHours);
             free(tzMin);
-            free(args->timeinfo);
+            //free(args->timeinfo);
             free(args);
         }
 

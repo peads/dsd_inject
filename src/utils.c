@@ -242,7 +242,7 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
         OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNAL RECEIVED");
         struct updateArgs *dbArgs = updateHash[idx];
         if (dbArgs != NULL) {
-            writeUpdate(dbArgs->frequency, dbArgs->timeinfo, dbArgs->nbyte);
+            writeUpdate(dbArgs->frequency, &dbArgs->timeinfo, dbArgs->nbyte);
         }
     //}
     free((void *) dateDecoded);
