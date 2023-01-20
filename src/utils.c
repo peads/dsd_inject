@@ -102,6 +102,8 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     memset(&dateDemodBind, 0, sizeof(dateDemodBind));
     memset(&frequencyBind, 0, sizeof(frequencyBind));
 
+    memset(bind, 0, sizeof(*bind));
+
     dateDemodBind.buffer_type = MYSQL_TYPE_DATETIME;
     dateDemodBind.buffer = (char *) dateDemod;
     dateDemodBind.length = 0;
@@ -180,7 +182,8 @@ void writeInsertToDatabase(void *buf, size_t nbyte) {
     timeinfo = localtime(&insertTime);
     dateDecoded = generateMySqlTimeFromTm(timeinfo);
 
-    memset(&bind, 0, 2*sizeof(*bind));
+
+    memset(bind, 0, sizeof(*bind));
     bind[0].buffer_type = MYSQL_TYPE_DATETIME;
     bind[0].buffer = dateDecoded;
     bind[0].length = 0;
@@ -218,14 +221,10 @@ void writeInsertToDatabase(void *buf, size_t nbyte) {
     time_t idx = (insertTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
     OUTPUT_DEBUG_STDERR(stderr, "Index: %lu", idx);
     struct updateArgs *dbArgs = updateHash[idx];
+
     if (dbArgs != NULL) {
-        fprintf(stderr, 
-            "inject::writeInsertToDatabase Struct added to hash at: %ld, %s\n", idx, buffer);
-        struct updateArgs *dbArgs = malloc(sizeof(struct updateArgs));
-        dbArgs->frequency = NULL;
-        updateHash[idx] = dbArgs;
-    } else {
-        //writeUpdate(dbArgs->frequency, dbArgs->timeinfo, dbArgs->nbyte);
+        fprintf(stderr, "%s\n", "UPDATING FREQUENCY");
+        writeUpdate(dbArgs->frequency, dbArgs->timeinfo, dbArgs->nbyte);
     }
 
     free((void *) dateDecoded);
