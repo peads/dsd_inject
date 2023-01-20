@@ -94,7 +94,7 @@ MYSQL_STMT *generateMySqlStatment(char *statement, MYSQL *conn, long size) {
 }
 
 void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
-    fprintf(stderr, "%s\n", "UPDATING FREQUENCY");
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "UPDATING FREQUENCY");
 
     int status;
     MYSQL_STMT *stmt;
@@ -124,7 +124,7 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
 
     unsigned long length = LENGTH_OF(INSERT_FREQUENCY);
     OUTPUT_DEBUG_STDERR(stderr, "Insert length of string: %u", length);
-    OUTPUT_INFO_STDERR(stderr, INSERT_FREQUENCY_INFO, frequency);
+    OUTPUT_INFO_STDERR(stderr,"writeUpdate :: "  INSERT_FREQUENCY_INFO, frequency);
 
     stmt = generateMySqlStatment(INSERT_FREQUENCY, conn, length);
 
@@ -147,15 +147,21 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
 
     length = LENGTH_OF(UPDATE_FREQUENCY);
     OUTPUT_DEBUG_STDERR(stderr, "Update length of string: %lu", length);
-    OUTPUT_INFO_STDERR(stderr, UPDATE_FREQUENCY_INFO, buffer, frequency, buffer);
+    OUTPUT_INFO_STDERR(stderr, "writeUpdate :: " UPDATE_FREQUENCY_INFO, buffer, frequency, buffer);
 
     stmt = generateMySqlStatment(UPDATE_FREQUENCY, conn, length);
 
     MYSQL_BIND bnd[3];
-    memset(bnd, 0, 3*sizeof(*bnd));
-    memcpy(&bnd[0], &dateDemodBind, sizeof(dateDemodBind));
-    memcpy(&bnd[1], &frequencyBind, sizeof(frequencyBind));
-    memcpy(&bnd[2], &dateDemodBind, sizeof(dateDemodBind));
+    memset(bnd, 0, sizeof(bnd));
+    memset(&bnd[0], 0, sizeof(MYSQL_BIND));
+    memset(&bnd[1], 0, sizeof(MYSQL_BIND));
+    memset(&bnd[2], 0, sizeof(MYSQL_BIND));
+
+    memcpy(&bnd[0], &dateDemodBind, sizeof(MYSQL_BIND));
+    memcpy(&bnd[1], &frequencyBind, sizeof(MYSQL_BIND));
+    memcpy(&bnd[2], &dateDemodBind, sizeof(MYSQL_BIND));
+
+    OUTPUT_INFO_STDERR(stderr, "writeUpdate :: %s %s %s", bnd[0].buffer, bnd[1].buffer, bnd[2].buffer);
 
     status = mysql_stmt_bind_param(stmt, bnd);
     if (status != 0) {
@@ -191,21 +197,22 @@ void *waitForUpdate(void *ctx) {
     struct updateArgs *dbArgs;
     struct timespec *spec = malloc(sizeof(struct timespec));
     do {
-        OUTPUT_DEBUG_STDERR(stderr, "waitForUpdate :: pid: %lu @ INDEX: %lu", pidHash[idx], idx);
+        OUTPUT_INFO_STDERR(stderr, "waitForUpdate :: pid: %lu @ INDEX: %lu", pidHash[idx], idx);
         time_t spects = time(NULL) + 1;
         spec->tv_sec = spects ;
         spec->tv_nsec = 1000000000*spects;
 
-        status = sigtimedwait(&set, NULL, spec);
         dbArgs = updateHash[idx];
 
         OUTPUT_DEBUG_STDERR(stderr, "Wait status returned %d", status);
 
         if (dbArgs != NULL) {
-            OUTPUT_DEBUG_STDERR(stderr, "writeInsertToDatabase :: DATE: %d-%d-%dT%d:%d:%d", dbArgs->timeinfo.tm_year + 1900, dbArgs->timeinfo.tm_mon + 1, dbArgs->timeinfo.tm_mday, dbArgs->timeinfo.tm_hour, dbArgs->timeinfo.tm_min, dbArgs->timeinfo.tm_sec);
+            OUTPUT_INFO_STDERR(stderr, "waitForUpdate :: DATE: %d-%d-%dT%d:%d:%d", dbArgs->timeinfo.tm_year + 1900, dbArgs->timeinfo.tm_mon + 1, dbArgs->timeinfo.tm_mday, dbArgs->timeinfo.tm_hour, dbArgs->timeinfo.tm_min, dbArgs->timeinfo.tm_sec);
             writeUpdate(dbArgs->frequency, &dbArgs->timeinfo, dbArgs->nbyte);
             return NULL;
         }
+        status = sigtimedwait(&set, NULL, spec);
+        OUTPUT_INFO_STDERR(stderr, "waitForUpdate :: Waited: %d seconds", i);
 
         i++;
     } while (NULL == dbArgs && i < 5);
@@ -271,7 +278,7 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
     pthread_create(&pid, NULL, waitForUpdate, &idx);
     pthread_detach(pid);
     pidHash[idx] = pid;
-    OUTPUT_DEBUG_STDERR(stderr, "writeInsertToDatabase :: pid: %lu @ INDEX: %lu", pid, idx);
+    OUTPUT_INFO_STDERR(stderr, "writeInsertToDatabase :: pid: %lu @ INDEX: %lu", pid, idx);
     free((void *) dateDecoded);
 }
 

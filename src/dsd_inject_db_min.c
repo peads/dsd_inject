@@ -151,18 +151,19 @@ void *notifyInsertThread(void *ctx) {
     sigemptyset(&set);
     sigaddset(&set, SIGUSR2);
     /*status = */pthread_sigmask(SIG_BLOCK, &set, NULL);
-    OUTPUT_DEBUG_STDERR(stderr, "notifyInsertThread :: DATE: %d-%d-%dT%d:%d:%d", args->timeinfo.tm_year + 1900, args->timeinfo.tm_mon + 1, args->timeinfo.tm_mday, args->timeinfo.tm_hour, args->timeinfo.tm_min, args->timeinfo.tm_sec);
+    OUTPUT_INFO_STDERR(stderr, "notifyInsertThread :: DATE: %d-%d-%dT%d:%d:%d", args->timeinfo.tm_year + 1900, args->timeinfo.tm_mon + 1, args->timeinfo.tm_mday, args->timeinfo.tm_hour, args->timeinfo.tm_min, args->timeinfo.tm_sec);
     
-    time_t spects = time(NULL) + 1;
-    struct timespec *spec = malloc(sizeof(struct timespec));
-    spec->tv_sec = spects;
-    spec->tv_nsec = 1000000000*spects;
 
+    struct timespec *spec = malloc(sizeof(struct timespec));
     pthread_t pid;
     pthread_t pidMinusOne;
     pthread_t pidPlusOne;
 
     do {
+        time_t spects = time(NULL) + 1;
+        spec->tv_sec = spects;
+        spec->tv_nsec = 1000000000*spects;
+
         pidMinusOne = pidHash[idx - 1];
         pid = pidHash[idx];
         pidPlusOne = pidHash[idx + 1];
@@ -176,10 +177,9 @@ void *notifyInsertThread(void *ctx) {
             OUTPUT_DEBUG_STDERR(stderr, "Struct added to hash at: %ld", idx);
             pthread_kill(pid, SIGUSR2);
             break;
-        } else {
-            sigtimedwait(&set, NULL, spec);
-            OUTPUT_DEBUG_STDERR(stderr, "Waited: %d seconds", i);
         }
+        sigtimedwait(&set, NULL, spec);
+        OUTPUT_INFO_STDERR(stderr, "notifyInsertThread :: Waited: %d seconds", i);
         i++;
     } while (pid <= 0 && i < 15);
     pthread_exit(&nargs->pid);
@@ -198,7 +198,7 @@ void *startUpdatingFrequency(void *ctx) {
     unsigned long size = 6 + strchr(portname, '\0') - ((char *) portname);
     char cmd[size];
     strcpy(cmd, portname);
-    strcat(cmd, " 2>&1");
+    //strcat(cmd, " 2>&1");
     fprintf(stderr, "%s size: %lu\n", cmd, size);
 
     fd = popen(cmd, "r");
