@@ -191,7 +191,7 @@ void *waitForUpdate(void *ctx) {
     struct updateArgs *dbArgs;
     struct timespec *spec = malloc(sizeof(struct timespec));
     do {
-        OUTPUT_DEBUG_STDERR(stderr, "writeInsertToDatabase :: pid: %lu @ INDEX: %lu", pidHash[idx], idx);
+        OUTPUT_DEBUG_STDERR(stderr, "waitForUpdate :: pid: %lu @ INDEX: %lu", pidHash[idx], idx);
         time_t spects = time(NULL) + 1;
         spec->tv_sec = spects ;
         spec->tv_nsec = 1000000000*spects;
@@ -215,7 +215,6 @@ void *waitForUpdate(void *ctx) {
 
 void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
 
-    time_t idx = (insertTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
     int status = 0;
  
     if (status != 0) {
@@ -267,11 +266,12 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
     mysql_stmt_close(stmt);
     mysql_close(conn);
 
+    time_t idx = (insertTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
     pthread_t pid = 0;
     pthread_create(&pid, NULL, waitForUpdate, &idx);
     pthread_detach(pid);
     pidHash[idx] = pid;
-    OUTPUT_DEBUG_STDERR(stderr, "pid: %lu @ INDEX: %lu", pid, idx);
+    OUTPUT_DEBUG_STDERR(stderr, "writeInsertToDatabase :: pid: %lu @ INDEX: %lu", pid, idx);
     free((void *) dateDecoded);
 }
 

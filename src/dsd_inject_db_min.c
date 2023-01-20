@@ -157,11 +157,17 @@ void *notifyInsertThread(void *ctx) {
     struct timespec *spec = malloc(sizeof(struct timespec));
     spec->tv_sec = spects;
     spec->tv_nsec = 1000000000*spects;
-            
+
     pthread_t pid;
+    pthread_t pidMinusOne;
+    pthread_t pidPlusOne;
 
     do {
+        pidMinusOne = pidHash[idx - 1];
         pid = pidHash[idx];
+        pidPlusOne = pidHash[idx + 1];
+
+        pid = pid != 0 ? pid : pidPlusOne != 0 ? pidPlusOne : pidMinusOne != 0 ? pidMinusOne : 0;
         OUTPUT_DEBUG_STDERR(stderr, "Searching pid: %lu at: %lu", pid, idx);
         if (pid > 0 ) {
 
@@ -175,7 +181,7 @@ void *notifyInsertThread(void *ctx) {
             OUTPUT_DEBUG_STDERR(stderr, "Waited: %d seconds", i);
         }
         i++;
-    } while (pid <= 0 && i < 5);
+    } while (pid <= 0 && i < 15);
     pthread_exit(&nargs->pid);
 }
 
