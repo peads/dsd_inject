@@ -92,6 +92,7 @@ MYSQL_STMT *generateMySqlStatment(char *statement, MYSQL *conn, long size) {
 }
 
 void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
+    fprintf(stderr, "%s\n", "UPDATING FREQUENCY");
 
     int status;
     MYSQL_STMT *stmt;
@@ -119,7 +120,7 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     frequencyBind.length = &nbyte;
     frequencyBind.is_null = 0;
 
-    unsigned long length = LENGTH_OF(INSERT_FREQUENCY);
+    unsigned long length = LENGTH_OF(INSERT_FREQUENCY) - 1;
     OUTPUT_DEBUG_STDERR(stderr, "Length of string: %ud", length);
     fprintf(stderr, INSERT_FREQUENCY_INFO "\n", frequency);
 
@@ -200,7 +201,7 @@ void writeInsertToDatabase(void *buf, size_t nbyte) {
     char buffer[26];
     strftime(buffer, 26, "%Y-%m-%dT%H:%M:%S:%z\n", timeinfo);
 
-    unsigned long length = LENGTH_OF(INSERT_DATA);
+    unsigned long length = LENGTH_OF(INSERT_DATA) - 1;
     OUTPUT_DEBUG_STDERR(stderr, "Length of string: %lu", length);
     fprintf(stderr, INSERT_INFO "\n", buffer, nbyte);
     
@@ -220,12 +221,10 @@ void writeInsertToDatabase(void *buf, size_t nbyte) {
 
     time_t idx = (insertTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
     OUTPUT_DEBUG_STDERR(stderr, "Index: %lu", idx);
-    struct updateArgs *dbArgs = updateHash[idx];
 
-    if (dbArgs != NULL) {
-        fprintf(stderr, "%s\n", "UPDATING FREQUENCY");
-        writeUpdate(dbArgs->frequency, dbArgs->timeinfo, dbArgs->nbyte);
-    }
+    //struct updateArgs *dbArgs = updateHash[idx];
+    //writeUpdate(dbArgs->frequency, dbArgs->timeinfo, dbArgs->nbyte);
+
 
     free((void *) dateDecoded);
 }

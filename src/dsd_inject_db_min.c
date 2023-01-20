@@ -31,6 +31,8 @@ const char *db_user;
 const char *schema;
 
 static sem_t sem;
+sem_t semRw;
+
 static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
 
 void onSignal(int sig) {
@@ -143,8 +145,8 @@ void *startUpdatingFrequency(void *ctx) {
     }
 
     isRunning = 1;
-    struct insertArgs *args = (struct insertArgs *) ctx;
-    char *portname = args->buf;
+    struct insertArgs *iargs = (struct insertArgs *) ctx;
+    char *portname = iargs->buf;
     unsigned long size = 6 + strchr(portname, '\0') - ((char *) portname);
     char cmd[size];
     strcpy(cmd, portname);
@@ -160,24 +162,24 @@ void *startUpdatingFrequency(void *ctx) {
     int ret;
 
     do {
-        struct updateArgs *args = malloc(sizeof(struct updateArgs));
-        args->frequency = malloc(8 * sizeof(char));
-        args->timeinfo = malloc(sizeof(struct tm));
-
         int *year = malloc(sizeof(int *));
         int *month = malloc(sizeof(int *));
         int *mantissa = malloc(sizeof(int *));
         int *characteristic = malloc(sizeof(int *));
-        int *tzHours = malloc(sizeof(int));
-        int *tzMin = malloc(sizeof(int));
-
+        int *tzHours = malloc(sizeof(int *));
+        int *tzMin = malloc(sizeof(int *));
+        int *day = malloc(sizeof(int *));
+        int *hour = malloc(sizeof(int *));
+        int *min = malloc(sizeof(int *));
+        int *sec = malloc(sizeof(int *));
+        
         ret = fscanf(fd, "%d-%d-%dT%d:%d:%d+%d:%d;%d.%d\n",
                      year,
                      month,
-                     &args->timeinfo->tm_mday,
-                     &args->timeinfo->tm_hour,
-                     &args->timeinfo->tm_min,
-                     &args->timeinfo->tm_sec,
+                     day,
+                     hour,
+                     min,
+                     sec,
                      tzHours,
                      tzMin,
                      characteristic,
@@ -185,10 +187,18 @@ void *startUpdatingFrequency(void *ctx) {
 
         OUTPUT_DEBUG_STDERR(stderr, "vars set: %d\n", ret);
         
-    if (ret == 10) {
+        if (ret == 10) {
+            
+            struct updateArgs *args = malloc(sizeof(struct updateArgs));
+            args->frequency = malloc(8 * sizeof(char));
+            args->timeinfo = malloc(sizeof(struct tm));
 
             args->timeinfo->tm_year = *year - 1900;
             args->timeinfo->tm_mon = *month - 1;
+            args->timeinfo->tm_mday = *day;
+            args->timeinfo->tm_hour = *hour;
+            args->timeinfo->tm_min = *min;
+            args->timeinfo->tm_sec = *sec;
             args->timeinfo->tm_isdst = 0;
 
             char frequency[8];
@@ -206,18 +216,11 @@ void *startUpdatingFrequency(void *ctx) {
             args->frequency = freq;
             
             time_t idx = (mktime(args->timeinfo) - updateStartTime) % SIX_DAYS_IN_SECONDS;
-            struct updateArgs *dbArgs = updateHash[idx];
-
-            
-            if (dbArgs != NULL) {
-                fprintf(stderr, "%s\n", "timeslot already occupied.");
-            } else {
-                char buffer[26];
-                strftime(buffer, 26, "%Y-%m-%dT%H:%M:%S%:%z\n", args->timeinfo);
-                fprintf(stderr, 
-                    "inject::startUpdatingFrequency Struct added to hash at: %ld, %s\n", idx, buffer);
-                updateHash[idx] = args;
-            }
+            char buffer[26];
+            strftime(buffer, 26, "%Y-%m-%dT%H:%M:%S%:%z\n", args->timeinfo);
+            fprintf(stderr, 
+                "inject::startUpdatingFrequency Struct added to hash at: %ld, %s\n", idx, buffer);
+            updateHash[idx] = args;
         } else {
             free(year);
             free(month);
@@ -225,12 +228,14 @@ void *startUpdatingFrequency(void *ctx) {
             free(characteristic);
             free(tzHours);
             free(tzMin);
-            free(args->timeinfo);
-            free(args);
+            free(day);
+            free(hour);
+            free(min);
+            free(sec);
         }
     } while (isRunning && ret != EOF);
 
-    pthread_exit(&args->pid);
+    pthread_exit(&iargs->pid);
 }
 
 ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
