@@ -230,10 +230,10 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
     mysql_stmt_close(stmt);
     mysql_close(conn);
 
-    time_t spects = time(NULL);
+    time_t spects = time(NULL) + 5;
     struct timespec *spec = malloc(sizeof(struct timespec));
-    spec->tv_sec = spects + 5;
-    spec->tv_nsec = spects + 5000;
+    spec->tv_sec = spects ;
+    spec->tv_nsec = 1000*spects;
 
     status = sigtimedwait(&set, NULL, spec);
 
@@ -243,7 +243,7 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
     OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNAL RECEIVED");
 
     struct updateArgs *dbArgs = updateHash[idx];
-    if (dbArgs != NULL && dbArgs->timeinfo.year >= timeinfo.year) {
+    if (dbArgs != NULL && dbArgs->timeinfo.tm_year >= timeinfo->tm_year) {
         writeUpdate(dbArgs->frequency, &dbArgs->timeinfo, dbArgs->nbyte);
     }
 

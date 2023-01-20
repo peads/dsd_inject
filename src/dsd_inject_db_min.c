@@ -157,10 +157,10 @@ void *notifyInsertThread(void *ctx) {
     /*status = */pthread_sigmask(SIG_BLOCK, &set, NULL);
     OUTPUT_DEBUG_STDERR(stderr, "DATE: %d-%d-%dT%d:%d:%d", args->timeinfo.tm_year + 1900, args->timeinfo.tm_mon + 1, args->timeinfo.tm_mday, args->timeinfo.tm_hour, args->timeinfo.tm_min, args->timeinfo.tm_sec);
     
-    time_t spects = time(NULL);
+    time_t spects = time(NULL) + 1;
     struct timespec *spec = malloc(sizeof(struct timespec));
-    spec->tv_sec = spects+1;
-    spec->tv_nsec = spects+1000;
+    spec->tv_sec = spects;
+    spec->tv_nsec = 1000*spects;
             
     pthread_t pid;
 
