@@ -155,25 +155,22 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     bind[1].buffer_length = nbyte;
     bind[1].length = &nbyte;
     bind[1].is_null = 0;
-    
-    bind[2].buffer_type = MYSQL_TYPE_DATETIME;
-    bind[2].buffer = (char *) dateDemod;
-    bind[2].length = 0;
-    bind[2].is_null = 0;
 
-    //memcpy(&bind[2], &bind[0], sizeof(MYSQL_BIND));
+    memcpy(&bind[2], &bind[0], sizeof(MYSQL_BIND));
     
-    char buffer[30];
     MYSQL_TIME *ts = bind[0].buffer;
-    fprintf(stderr, "writeUpdate :: %04d-%02d-%02d %02d:%02d:%02d\n",
-                 ts->year, ts->month, ts->day,
-                 ts->hour, ts->minute, ts->second);
+    OUTPUT_DEBUG_STDERR(stderr, 
+            "writeUpdate :: %04d-%02d-%02d %02d:%02d:%02d",
+             ts->year, ts->month, ts->day,
+             ts->hour, ts->minute, ts->second);
 
+    char buffer[36];
     ts = bind[2].buffer;
-    sprintf(buffer, "writeUpdate :: %04d-%02d-%02d %02d:%02d:%02d\n",
+    sprintf(buffer, "%04d-%02d-%02d %02d:%02d:%02d",
                  ts->year, ts->month, ts->day,
                  ts->hour, ts->minute, ts->second);
-    OUTPUT_INFO_STDERR(stderr, "writeUpdate :: " UPDATE_FREQUENCY_INFO, 
+    OUTPUT_INFO_STDERR(stderr, 
+        "writeUpdate :: " UPDATE_FREQUENCY_INFO, 
         buffer, frequency, buffer);
 
     status = mysql_stmt_bind_param(stmt, bind);
