@@ -56,7 +56,7 @@ void initializeSignalHandlers() {
 
     int sigs[] = {SIGABRT, SIGALRM, SIGFPE, SIGHUP, SIGILL,
                   SIGINT, SIGPIPE, SIGQUIT, SIGSEGV, SIGTERM,
-                  SIGUSR1, SIGUSR2};
+                  /*SIGUSR1,*/ SIGUSR2};
 
     int i = 0;
     for (; i < (int) LENGTH_OF(sigs); ++i) {
