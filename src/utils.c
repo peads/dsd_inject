@@ -123,7 +123,7 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     frequencyBind.is_null = 0;
 
     unsigned long length = LENGTH_OF(INSERT_FREQUENCY) - 1;
-    OUTPUT_DEBUG_STDERR(stderr, "Length of string: %ud", length);
+    OUTPUT_DEBUG_STDERR(stderr, "Insert length of string: %u", length);
     OUTPUT_INFO_STDERR(stderr, INSERT_FREQUENCY_INFO, frequency);
 
     stmt = generateMySqlStatment(INSERT_FREQUENCY, conn, length);
@@ -145,8 +145,8 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     char buffer[26];
     strftime(buffer, 26, "%Y-%m-%dT%H:%M:%S:%z\n", timeinfo);
 
-    length = LENGTH_OF(UPDATE_FREQUENCY_INFO);
-    OUTPUT_DEBUG_STDERR(stderr, "Length of string: %lu", length);
+    length = LENGTH_OF(UPDATE_FREQUENCY) - 1;
+    OUTPUT_DEBUG_STDERR(stderr, "Update length of string: %lu", length);
     OUTPUT_INFO_STDERR(stderr, UPDATE_FREQUENCY_INFO, buffer, frequency, buffer);
 
     stmt = generateMySqlStatment(UPDATE_FREQUENCY, conn, length);
@@ -235,6 +235,7 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
     spec->tv_nsec = 0;
 
     status = sigtimedwait(&set, NULL, spec);
+    OUTPUT_DEBUG_STDERR(stderr, "Wait status returned %d for pid: %lu", status, pidHash[idx]);
     //if (status != -1) {
     //    OUTPUT_DEBUG_STDERR(stderr, "%s", "bad signals");
     //    exit(status);

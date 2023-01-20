@@ -233,7 +233,7 @@ void *startUpdatingFrequency(void *ctx) {
         timeinfo.tm_isdst = 0;
         args->timeinfo = timeinfo;
         time_t loopTime = mktime(&timeinfo);
-        fprintf(stderr, "DELTA TIME: %ld", loopTime - updateStartTime);
+        OUTPUT_DEBUG_STDERR(stderr, "DELTA TIME: %ld", loopTime - updateStartTime);
         char frequency[8];
         sprintf(frequency, "%d.%d", *characteristic, *mantissa);
 
