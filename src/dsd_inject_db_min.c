@@ -155,10 +155,12 @@ void *notifyInsertThread(void *ctx) {
     sigemptyset(&set);
     sigaddset(&set, SIGUSR2);
     /*status = */pthread_sigmask(SIG_BLOCK, &set, NULL);
+    OUTPUT_DEBUG_STDERR(stderr, "DATE: %d-%d-%dT%d:%d:%d", args->timeinfo.tm_year + 1900, args->timeinfo.tm_mon + 1, args->timeinfo.tm_mday, args->timeinfo.tm_hour, args->timeinfo.tm_min, args->timeinfo.tm_sec);
     
+    time_t spects = time(NULL);
     struct timespec *spec = malloc(sizeof(struct timespec));
-    spec->tv_sec = time(NULL) + 1;
-    spec->tv_nsec = 0;
+    spec->tv_sec = spects+1;
+    spec->tv_nsec = spects+1000;
             
     pthread_t pid;
 
@@ -169,12 +171,12 @@ void *notifyInsertThread(void *ctx) {
 
             OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNALS AWAY"); 
             updateHash[idx] = args;
-            fprintf(stderr, "Struct added to hash at: %ld\n", idx);
+            OUTPUT_DEBUG_STDERR(stderr, "Struct added to hash at: %ld", idx);
             pthread_kill(pid, SIGUSR2);
             break;
         } else {
             sigtimedwait(&set, NULL, spec);
-            fprintf(stderr, "Waited: %d seconds", i);
+            OUTPUT_DEBUG_STDERR(stderr, "Waited: %d seconds", i);
         }
         i++;
     } while (pid <= 0 && i < 5);
@@ -228,26 +230,29 @@ void *startUpdatingFrequency(void *ctx) {
                      mantissa);
         OUTPUT_DEBUG_STDERR(stderr, "vars set: %d\n", ret);
 
-        timeinfo.tm_year = *year - 1900;
-        timeinfo.tm_mon = *month - 1;
-        timeinfo.tm_isdst = 0;
-        args->timeinfo = timeinfo;
-        time_t loopTime = mktime(&timeinfo);
-        OUTPUT_DEBUG_STDERR(stderr, "DELTA TIME: %ld", loopTime - updateStartTime);
-        char frequency[8];
-        sprintf(frequency, "%d.%d", *characteristic, *mantissa);
-
-        OUTPUT_DEBUG_STDERR(stderr, "Size of string: %ld\n", 1 + strchr(frequency, '\0') - frequency);
-        //unsigned long nbyte = 8;
-
-        unsigned long last = strchr(frequency, '\0') - frequency;
-        unsigned long nbyte = 1 + last;
-        strcpy(args->frequency, frequency);
-        args->frequency[last] = '\0';
-        args->nbyte = nbyte;
-        fprintf(stderr, "FREQUENCY: %s\n", args->frequency);
-
         if (ret == 10) {
+            timeinfo.tm_year = *year - 1900;
+            timeinfo.tm_mon = *month - 1;
+            timeinfo.tm_isdst = 0;
+            
+            args->timeinfo = timeinfo;
+            
+            time_t loopTime = mktime(&timeinfo);
+            OUTPUT_DEBUG_STDERR(stderr, "DELTA TIME: %ld", loopTime - updateStartTime);
+            
+            char frequency[8];
+            sprintf(frequency, "%d.%d", *characteristic, *mantissa);
+
+            OUTPUT_DEBUG_STDERR(stderr, "Size of string: %ld\n", 1 + strchr(frequency, '\0') - frequency);
+            //unsigned long nbyte = 8;
+
+            unsigned long last = strchr(frequency, '\0') - frequency;
+            unsigned long nbyte = 1 + last;
+            strcpy(args->frequency, frequency);
+            args->frequency[last] = '\0';
+            args->nbyte = nbyte;
+            OUTPUT_DEBUG_STDERR(stderr, "FREQUENCY: %s", args->frequency);
+
             time_t idx = (loopTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
             struct notifyArgs *nargs = malloc(sizeof(struct notifyArgs));
 

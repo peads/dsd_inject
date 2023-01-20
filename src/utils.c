@@ -122,7 +122,7 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     frequencyBind.length = &nbyte;
     frequencyBind.is_null = 0;
 
-    unsigned long length = LENGTH_OF(INSERT_FREQUENCY) - 1;
+    unsigned long length = LENGTH_OF(INSERT_FREQUENCY);
     OUTPUT_DEBUG_STDERR(stderr, "Insert length of string: %u", length);
     OUTPUT_INFO_STDERR(stderr, INSERT_FREQUENCY_INFO, frequency);
 
@@ -145,7 +145,7 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     char buffer[26];
     strftime(buffer, 26, "%Y-%m-%dT%H:%M:%S:%z\n", timeinfo);
 
-    length = LENGTH_OF(UPDATE_FREQUENCY) - 1;
+    length = LENGTH_OF(UPDATE_FREQUENCY);
     OUTPUT_DEBUG_STDERR(stderr, "Update length of string: %lu", length);
     OUTPUT_INFO_STDERR(stderr, UPDATE_FREQUENCY_INFO, buffer, frequency, buffer);
 
@@ -212,11 +212,11 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
     char buffer[26];
     strftime(buffer, 26, "%Y-%m-%dT%H:%M:%S:%z\n", timeinfo);
 
-    unsigned long length = LENGTH_OF(INSERT_DATA) - 1;
+    unsigned long length = LENGTH_OF(INSERT_DATA) ;
     OUTPUT_DEBUG_STDERR(stderr, "Length of string: %lu", length);
     fprintf(stderr, INSERT_INFO "\n", buffer, nbyte);
     
-    stmt = generateMySqlStatment(INSERT_DATA, conn,  LENGTH_OF(INSERT_DATA));
+    stmt = generateMySqlStatment(INSERT_DATA, conn, length);
 
     status = mysql_stmt_bind_param(stmt, bind);
     if (status != 0) {
@@ -230,22 +230,21 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
     mysql_stmt_close(stmt);
     mysql_close(conn);
 
+    time_t spects = time(NULL);
     struct timespec *spec = malloc(sizeof(struct timespec));
-    spec->tv_sec = time(NULL) + 5;
-    spec->tv_nsec = 0;
+    spec->tv_sec = spects + 5;
+    spec->tv_nsec = spects + 5000;
 
     status = sigtimedwait(&set, NULL, spec);
-    OUTPUT_DEBUG_STDERR(stderr, "Wait status returned %d for pid: %lu", status, pidHash[idx]);
-    //if (status != -1) {
-    //    OUTPUT_DEBUG_STDERR(stderr, "%s", "bad signals");
-    //    exit(status);
-    //} else if (EINVAL != status && status != EINTR && status != EAGAIN) {
+
+    if (status != -1) {
         OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNAL RECEIVED");
+        OUTPUT_DEBUG_STDERR(stderr, "Wait status returned %d for pid: %lu", status, pidHash[idx]);
         struct updateArgs *dbArgs = updateHash[idx];
         if (dbArgs != NULL) {
             writeUpdate(dbArgs->frequency, &dbArgs->timeinfo, dbArgs->nbyte);
         }
-    //}
+    }
     free((void *) dateDecoded);
 }
 
