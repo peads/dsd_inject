@@ -166,9 +166,15 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     bind[1].is_null = 0;
 
     memcpy(&bind[2], &bind[0], sizeof(MYSQL_BIND));
-
-    OUTPUT_INFO_STDERR(stderr, "writeUpdate :: %s %s %s", 
-        bind[0].buffer, bind[1].buffer, bind[2].buffer);
+    
+    MYSQL_TIME *ts = bind[0].buffer;
+    fprintf(stderr, "%04d-%02d-%02d %02d:%02d:%02d\n",
+                 ts->year, ts->month, ts->day,
+                 ts->hour, ts->minute, ts->second);
+    ts = bind[2].buffer;
+    fprintf(stderr, "%04d-%02d-%02d %02d:%02d:%02d\n",
+                 ts->year, ts->month, ts->day,
+                 ts->hour, ts->minute, ts->second);
 
     status = mysql_stmt_bind_param(stmt, bind);
     if (status != 0) {
