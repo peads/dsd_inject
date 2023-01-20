@@ -165,12 +165,12 @@ void *notifyInsertThread(void *ctx) {
 
     do {
         pid = pidHash[idx];
-        OUTPUT_DEBUG_STDERR(stderr, "Searching pid: %lu at: %lu", pid, idx);
+        OUTPUT_DEBUG_STDERR(stderr, "Searching pid: %lu @ %lu", pid, idx);
         if (pid > 0 ) {
 
             OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNALS AWAY"); 
             updateHash[idx] = args;
-            OUTPUT_DEBUG_STDERR(stderr, "Struct added to hash at: %ld", idx);
+            OUTPUT_DEBUG_STDERR(stderr, "Struct added to hash @ %ld", idx);
             pthread_kill(pid, SIGUSR2);
             break;
         } else {
