@@ -173,10 +173,7 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
 
 void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
 
-    //const time_t insertTime = time(NULL);
     time_t idx = (insertTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
-    //OUTPUT_DEBUG_STDERR(stderr, "Index: %lu", idx);
-    //pidHash[idx] = args->pid;
     int status = 0;
     sigset_t set;
 
@@ -233,10 +230,14 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
     mysql_stmt_close(stmt);
     mysql_close(conn);
 
-    int sig;
-    status = sigwait(&set, &sig);
-    if (sig != 0) {
-        exit(sig);
+    struct timespec spec;
+    clock_gettime(CLOCK_REALTIME, &spec);
+    spec.tv_sec += 120;
+
+    status = sigtimedwait(&set, NULL, &spec);
+    if (EINVAL == status) {
+        OUTPUT_DEBUG_STDERR(stderr, "%s", "bad signals");
+        exit(status);
     }
     OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNAL RECEIVED");
     struct updateArgs *dbArgs = updateHash[idx];
