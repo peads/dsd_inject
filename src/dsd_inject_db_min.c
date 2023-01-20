@@ -131,6 +131,12 @@ static void onExit(void) {
         fprintf(stderr, "%s", "semaphore destroyed\n");
     }
 
+    if ((status = sem_close(&semRw)) != 0) {
+        fprintf(stderr, "unable to unlink semaphore. status: %s\n", strerror(status));
+    } else {
+        fprintf(stderr, "%s", "semaphore destroyed\n");
+    }
+
     if ((status = pclose(fd)) != 0) {
         fprintf(stderr, "Error closing awk script. status %s\n", strerror(status));
     }
@@ -207,8 +213,8 @@ void *startUpdatingFrequency(void *ctx) {
         args->frequency = freq;
 
         if (ret != 10) {
-            time_t idx = mktime(timeinfo) - updateStartTime;
-            updateHash[idx >= 0 ? (idx % SIX_DAYS_IN_SECONDS) : 0] = args;
+            time_t idx = (mktime(timeinfo) - updateStartTime) % SIX_DAYS_IN_SECONDS;
+            updateHash[idx] = args;
             fprintf(stderr, "Struct added to hash at: %ld\n", idx);
         } else {
             free(year);
@@ -231,7 +237,8 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
         initializeEnv();
         initializeSignalHandlers();
         sem_init(&sem, 0, SEM_RESOURCES);
-        
+        sem_init($semRw, 0, 1);
+ 
         fprintf(stderr, "%s", "wrapping write\n");
         next_write = dlsym(RTLD_NEXT, "write");
         const char *msg = dlerror();
