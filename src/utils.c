@@ -152,7 +152,7 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     stmt = generateMySqlStatment(UPDATE_FREQUENCY, conn, length);
 
     MYSQL_BIND bnd[3];
-    memset(bnd, 0, sizeof(bnd));
+    memset(bnd, 0, sizeof(*bnd));
     memcpy(&bnd[0], &dateDemodBind, sizeof(dateDemodBind));
     memcpy(&bnd[1], &frequencyBind, sizeof(frequencyBind));
     memcpy(&bnd[2], &dateDemodBind, sizeof(dateDemodBind));
