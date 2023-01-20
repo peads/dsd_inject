@@ -124,7 +124,7 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
 
     unsigned long length = LENGTH_OF(INSERT_FREQUENCY) - 1;
     OUTPUT_DEBUG_STDERR(stderr, "Length of string: %ud", length);
-    fprintf(stderr, INSERT_FREQUENCY_INFO "\n", frequency);
+    OUTPUT_INFO_STDERR(stderr, INSERT_FREQUENCY_INFO, frequency);
 
     stmt = generateMySqlStatment(INSERT_FREQUENCY, conn, length);
 
@@ -147,7 +147,7 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
 
     length = LENGTH_OF(UPDATE_FREQUENCY_INFO);
     OUTPUT_DEBUG_STDERR(stderr, "Length of string: %lu", length);
-    fprintf(stderr, UPDATE_FREQUENCY_INFO, buffer, frequency, buffer);
+    OUTPUT_INFO_STDERR(stderr, UPDATE_FREQUENCY_INFO, buffer, frequency, buffer);
 
     stmt = generateMySqlStatment(UPDATE_FREQUENCY, conn, length);
 
