@@ -19,6 +19,7 @@
 //
 
 #include "utils.h"
+#include <unistd.h>
 
 extern char *db_pass;
 extern char *db_host;
@@ -157,17 +158,16 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     bind[1].is_null = 0;
 
     memcpy(&bind[2], &bind[0], sizeof(MYSQL_BIND));
-    
+    const char *dateString = "%04d-%02d-%02d %02d:%02d:%02d"; 
     MYSQL_TIME *ts = bind[0].buffer;
     OUTPUT_DEBUG_STDERR(stderr, 
-            "writeUpdate :: %04d-%02d-%02d %02d:%02d:%02d",
+            "writeUpdate :: " dateString,
              ts->year, ts->month, ts->day,
              ts->hour, ts->minute, ts->second);
 
     char buffer[36];
     ts = bind[2].buffer;
-    sprintf(buffer, "%04d-%02d-%02d %02d:%02d:%02d",
-                 ts->year, ts->month, ts->day,
+    sprintf(buffer, dateString,ts->year, ts->month, ts->day,
                  ts->hour, ts->minute, ts->second);
     OUTPUT_INFO_STDERR(stderr, 
         "writeUpdate :: " UPDATE_FREQUENCY_INFO, 
@@ -185,6 +185,43 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
 
     mysql_stmt_close(stmt);
     mysql_close(conn);
+}
+
+void *notifyInsertThread(void *ctx) {
+   
+    struct notifyArgs *nargs = (struct notifyArgs *) ctx;
+    time_t idx = nargs->idx;
+    struct updateArgs *args = nargs->args;
+    int i = 0;
+
+    OUTPUT_INFO_STDERR(stderr, "notifyInsertThread :: DATE: %d-%d-%dT%d:%d:%d", 
+        args->timeinfo.tm_year + 1900, 
+        args->timeinfo.tm_mon + 1, 
+        args->timeinfo.tm_mday, 
+        args->timeinfo.tm_hour, 
+        args->timeinfo.tm_min, 
+        args->timeinfo.tm_sec);
+
+    pthread_t pid;
+
+    do {
+        pid = pidHash[idx];
+
+        OUTPUT_DEBUG_STDERR(stderr, "Searching pid: %lu at: %lu", pid, idx);
+        if (pid > 0 ) {
+
+            OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNALS AWAY"); 
+            updateHash[idx] = args;
+            OUTPUT_DEBUG_STDERR(stderr, "Struct added to hash at: %ld", idx);
+            pthread_kill(pid, SIGUSR2);
+            break;
+        }
+
+        sleep(1);
+        OUTPUT_INFO_STDERR(stderr, "notifyInsertThread :: Waited: %d seconds", i);
+        i++;
+    } while (pid <= 0 && i < 5);
+    pthread_exit(&nargs->pid);
 }
 
 void *waitForUpdate(void *ctx) {
@@ -205,23 +242,26 @@ void *waitForUpdate(void *ctx) {
    
     int i = 0; 
     struct updateArgs *dbArgs;
-    struct timespec *spec = malloc(sizeof(struct timespec));
+
     do {
         OUTPUT_INFO_STDERR(stderr, "waitForUpdate :: pid: %lu @ INDEX: %lu", pidHash[idx], idx);
-        time_t spects = time(NULL) + 1;
-        spec->tv_sec = spects ;
-        spec->tv_nsec = 1000000000*spects;
 
         dbArgs = updateHash[idx];
 
         OUTPUT_DEBUG_STDERR(stderr, "Wait status returned %d", status);
 
         if (dbArgs != NULL) {
-            OUTPUT_INFO_STDERR(stderr, "waitForUpdate :: DATE: %d-%d-%dT%d:%d:%d", dbArgs->timeinfo.tm_year + 1900, dbArgs->timeinfo.tm_mon + 1, dbArgs->timeinfo.tm_mday, dbArgs->timeinfo.tm_hour, dbArgs->timeinfo.tm_min, dbArgs->timeinfo.tm_sec);
+            OUTPUT_INFO_STDERR(stderr, "waitForUpdate :: DATE: %d-%d-%dT%d:%d:%d", 
+                dbArgs->timeinfo.tm_year + 1900, 
+                dbArgs->timeinfo.tm_mon + 1, 
+                dbArgs->timeinfo.tm_mday, 
+                dbArgs->timeinfo.tm_hour, 
+                dbArgs->timeinfo.tm_min, 
+                dbArgs->timeinfo.tm_sec);
             writeUpdate(dbArgs->frequency, &dbArgs->timeinfo, dbArgs->nbyte);
             return NULL;
         }
-        status = sigtimedwait(&set, NULL, spec);
+        sleep(1);
         OUTPUT_INFO_STDERR(stderr, "waitForUpdate :: Waited: %d seconds", i);
 
         i++;

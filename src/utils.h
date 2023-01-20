@@ -105,5 +105,7 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte);
 void writeInsertToDatabase(time_t time, void *buf, size_t nbyte);
 
 void writeFrequencyPing(char *frequency, unsigned long nbyte);
+
+void *notifyInsertThread(void *ctx);
 #endif //UTILS_H
 

@@ -141,50 +141,6 @@ static void onExit(void) {
     next_write = NULL;
 }
 
-void *notifyInsertThread(void *ctx) {
-   
-    struct notifyArgs *nargs = (struct notifyArgs *) ctx;
-    time_t idx = nargs->idx;
-    struct updateArgs *args = nargs->args;
-    int i = 0;
-    sigset_t set;
-    sigemptyset(&set);
-    sigaddset(&set, SIGUSR2);
-    /*status = */pthread_sigmask(SIG_BLOCK, &set, NULL);
-    OUTPUT_INFO_STDERR(stderr, "notifyInsertThread :: DATE: %d-%d-%dT%d:%d:%d", args->timeinfo.tm_year + 1900, args->timeinfo.tm_mon + 1, args->timeinfo.tm_mday, args->timeinfo.tm_hour, args->timeinfo.tm_min, args->timeinfo.tm_sec);
-    
-
-    struct timespec *spec = malloc(sizeof(struct timespec));
-    pthread_t pid;
-    pthread_t pidMinusOne;
-    pthread_t pidPlusOne;
-
-    do {
-        time_t spects = time(NULL) + 1;
-        spec->tv_sec = spects;
-        spec->tv_nsec = 1000000000*spects;
-
-        pidMinusOne = pidHash[idx - 1];
-        pid = pidHash[idx];
-        pidPlusOne = pidHash[idx + 1];
-
-        pid = pid != 0 ? pid : pidPlusOne != 0 ? pidPlusOne : pidMinusOne != 0 ? pidMinusOne : 0;
-        OUTPUT_DEBUG_STDERR(stderr, "Searching pid: %lu at: %lu", pid, idx);
-        if (pid > 0 ) {
-
-            OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNALS AWAY"); 
-            updateHash[idx] = args;
-            OUTPUT_DEBUG_STDERR(stderr, "Struct added to hash at: %ld", idx);
-            pthread_kill(pid, SIGUSR2);
-            break;
-        }
-        sigtimedwait(&set, NULL, spec);
-        OUTPUT_INFO_STDERR(stderr, "notifyInsertThread :: Waited: %d seconds", i);
-        i++;
-    } while (pid <= 0 && i < 15);
-    pthread_exit(&nargs->pid);
-}
-
 void *startUpdatingFrequency(void *ctx) {
 
     if (isRunning) {
