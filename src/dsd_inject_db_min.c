@@ -112,11 +112,10 @@ void *run(void *ctx) {
     struct insertArgs *args = (struct insertArgs *) ctx;
     const time_t insertTime = time(NULL);
     time_t idx = (insertTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
-    pidHash[idx] = args->pid;
-    OUTPUT_DEBUG_STDERR(stderr, "pid: %lu @ INDEX: %lu", args->pid, idx);
-
 
     sem_wait(&sem);
+    pidHash[idx] = args->pid;
+    OUTPUT_DEBUG_STDERR(stderr, "run :: pid: %lu @ INDEX: %lu", pidHash[idx], idx);
 
     writeInsertToDatabase(insertTime, args->buf, args->nbyte);
 
@@ -155,12 +154,12 @@ void *notifyInsertThread(void *ctx) {
     sigemptyset(&set);
     sigaddset(&set, SIGUSR2);
     /*status = */pthread_sigmask(SIG_BLOCK, &set, NULL);
-    OUTPUT_DEBUG_STDERR(stderr, "DATE: %d-%d-%dT%d:%d:%d", args->timeinfo.tm_year + 1900, args->timeinfo.tm_mon + 1, args->timeinfo.tm_mday, args->timeinfo.tm_hour, args->timeinfo.tm_min, args->timeinfo.tm_sec);
+    OUTPUT_DEBUG_STDERR(stderr, "notifyInsertThread :: DATE: %d-%d-%dT%d:%d:%d", args->timeinfo.tm_year + 1900, args->timeinfo.tm_mon + 1, args->timeinfo.tm_mday, args->timeinfo.tm_hour, args->timeinfo.tm_min, args->timeinfo.tm_sec);
     
     time_t spects = time(NULL) + 1;
     struct timespec *spec = malloc(sizeof(struct timespec));
     spec->tv_sec = spects;
-    spec->tv_nsec = 1000*spects;
+    spec->tv_nsec = 1000000000*spects;
             
     pthread_t pid;
 
@@ -180,7 +179,7 @@ void *notifyInsertThread(void *ctx) {
         }
         i++;
     } while (pid <= 0 && i < 5);
-    pthread_exit(nargs->pid);
+    pthread_exit(&nargs->pid);
 }
 
 void *startUpdatingFrequency(void *ctx) {
@@ -231,14 +230,14 @@ void *startUpdatingFrequency(void *ctx) {
         OUTPUT_DEBUG_STDERR(stderr, "vars set: %d\n", ret);
 
         if (ret == 10) {
+            time_t loopTime = mktime(&timeinfo);
+            OUTPUT_DEBUG_STDERR(stderr, "DELTA TIME: %ld", loopTime - updateStartTime);
+
             timeinfo.tm_year = *year - 1900;
             timeinfo.tm_mon = *month - 1;
             timeinfo.tm_isdst = 0;
             
             args->timeinfo = timeinfo;
-            
-            time_t loopTime = mktime(&timeinfo);
-            OUTPUT_DEBUG_STDERR(stderr, "DELTA TIME: %ld", loopTime - updateStartTime);
             
             char frequency[8];
             sprintf(frequency, "%d.%d", *characteristic, *mantissa);
@@ -258,9 +257,9 @@ void *startUpdatingFrequency(void *ctx) {
 
             nargs->idx = idx;
             nargs->args = args;
-            nargs->pid = malloc(sizeof(pthread_t));
-            pthread_create(nargs->pid, NULL, notifyInsertThread, nargs);
-            pthread_detach(*nargs->pid);
+            nargs->pid = 0;
+            pthread_create(&nargs->pid, NULL, notifyInsertThread, nargs);
+            pthread_detach(nargs->pid);
         } else {
             free(year);
             free(month);

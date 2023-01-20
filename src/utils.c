@@ -233,17 +233,18 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
     time_t spects = time(NULL) + 5;
     struct timespec *spec = malloc(sizeof(struct timespec));
     spec->tv_sec = spects ;
-    spec->tv_nsec = 1000*spects;
+    spec->tv_nsec = 1000000000*spects;
 
     status = sigtimedwait(&set, NULL, spec);
 
-    if (status != -1) {
-        OUTPUT_DEBUG_STDERR(stderr, "Wait status returned %d for pid: %lu", status, pidHash[idx]);
-    }
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNAL RECEIVED");
+    OUTPUT_DEBUG_STDERR(stderr, "Wait status returned %d", status);
+    OUTPUT_DEBUG_STDERR(stderr, "writeInsertToDatabase :: pid: %lu @ INDEX: %lu", pidHash[idx], idx);
 
     struct updateArgs *dbArgs = updateHash[idx];
-    if (dbArgs != NULL && dbArgs->timeinfo.tm_year >= timeinfo->tm_year) {
+
+    if (dbArgs != NULL) {
+        OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNAL RECEIVED");
+        OUTPUT_DEBUG_STDERR(stderr, "writeInsertToDatabase :: DATE: %d-%d-%dT%d:%d:%d", dbArgs->timeinfo.tm_year + 1900, dbArgs->timeinfo.tm_mon + 1, dbArgs->timeinfo.tm_mday, dbArgs->timeinfo.tm_hour, dbArgs->timeinfo.tm_min, dbArgs->timeinfo.tm_sec);
         writeUpdate(dbArgs->frequency, &dbArgs->timeinfo, dbArgs->nbyte);
     }
 

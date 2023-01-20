@@ -76,7 +76,7 @@ struct updateArgs {
 };
 
 struct notifyArgs {
-    pthread_t *pid;
+    pthread_t pid;
     time_t idx;
     struct updateArgs *args;
 };
