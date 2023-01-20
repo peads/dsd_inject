@@ -59,13 +59,20 @@ void initializeSignalHandlers() {
                   /*SIGUSR1, SIGUSR2*/};
 
     int i = 0;
+    __sighandler_t prev; 
     for (; i < (int) LENGTH_OF(sigs); ++i) {
         const int sig = sigs[i];
         const char *name = strsignal(sig);
-
-        fprintf(stderr, "Initializing signal handler for signal: %s\n", name);
+        const short isUserSig = SIGUSR1 == sig && SIGUSR2 == sig;
 
         sigaction(sig, NULL, sigInfo);
+        if (isUserSig) {
+            prev = sigHandler->sa_handler;
+            sigHandler->sa_handler = SIG_IGN;
+        }
+
+        fprintf(stderr, "Initializing signal handler for signal: %s\n", name);
+        
         const int res = sigaction(sig, sigHandler, sigInfo);
 
         if (res == -1) {
@@ -73,8 +80,16 @@ void initializeSignalHandlers() {
             exit(-1);
         } else {
             fprintf(stderr, "Successfully initialized signal handler for signal: %s\n", name);
+            if (isUserSig) {
+                sigHandler->sa_handler = prev;
+            }
         }
     }
+    sigHandler->sa_handler = SIG_IGN;
+    sigaction(SIGUSR1, NULL, sigInfo);
+    sigaction(SIGUSR1, sigHandler, sigInfo);
+    sigaction(SIGUSR2, NULL, sigInfo);
+    sigaction(SIGUSR2, sigHandler, sigInfo);
 
     free(sigInfo);
     free(sigHandler);
@@ -214,13 +229,12 @@ void *startUpdatingFrequency(void *ctx) {
 
         if (ret == 10) {
             time_t idx = (loopTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
-            pthread_t pid = pidHash[idx];
+            pthread_t pid;
             OUTPUT_DEBUG_STDERR(stderr, "Searching pid: %lu at: %lu", pid, idx);
             int i = 0;
-            struct timespec spec;
-            clock_gettime(CLOCK_REALTIME, &spec);
-            spec.tv_sec += 1;
-            spec.tv_nsec = 0;
+            struct timespec *spec = malloc(sizeof(struct timespec));
+            spec->tv_sec = time(NULL) + 1;
+            spec->tv_nsec = 0;
             
             sigset_t set;
 
@@ -228,18 +242,20 @@ void *startUpdatingFrequency(void *ctx) {
             sigaddset(&set, SIGUSR2);
             /*status = */pthread_sigmask(SIG_BLOCK, &set, NULL);
             do {
-                fprintf(stderr, "Waited: %d seconds", i);
+                pid = pidHash[idx];
                 if (pid > 0 ) {
         
                     OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNALS AWAY"); 
                     updateHash[idx] = args;
                     fprintf(stderr, "Struct added to hash at: %ld\n", idx);
-                    //pthread_kill(pid, SIGUSR2);
+                    pthread_kill(pid, SIGUSR2);
                     break;
-                } else 
-                    sigtimedwait(&set, NULL, &spec);
+                } else {
+                    sigtimedwait(&set, NULL, spec);
+                    fprintf(stderr, "Waited: %d seconds", i);
+                }
                 i++;
-            } while ((pid = pidHash[idx]) <= 0 && i < 5);
+            } while (pid <= 0 && i < 5);
         } else {
             free(year);
             free(month);

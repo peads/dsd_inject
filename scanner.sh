@@ -31,7 +31,7 @@ socat -d -d pty,raw,link=$PWD/fm-in,echo=0 pty,raw,link=$PWD/fm-out,echo=0 &
 socat -d -d pty,raw,link=$PWD/db-in,echo=0 pty,raw,link=$PWD/db-out,echo=0 &
 
 #create rtl_fm to sox plumbing via socat
-screen -d -m -S sox bash --noprofile --norc -c 'rtl_fm -L 50 -p -1 -T -f 154685k -f 155190k -f 154935k -f 155370k -f 155625k -f 155700k -f 155685k -f 156210k -M nfm -s 12.5k -l 550 -g 49.2 -t 2 - 2>$PWD/fm-in | \
+screen -d -m -S sox bash --noprofile --norc -c 'rtl_fm -L 50 -p -1 -T -f 155190k -f 154935k -f 155370k -f 155625k -f 155700k -f 155685k -f 156210k -M nfm -s 12.5k -l 550 -g 49.2 -t 2 - 2>$PWD/fm-in | \
 sox -t raw -r 12.5k -v 1 -es -b16 -L -c1 - -b16 -es -c1 -r 48000 -L -t raw - | \
 socat -d -d -u - tcp-listen:1234,reuseaddr,fork'
 

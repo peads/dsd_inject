@@ -230,16 +230,15 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
     mysql_stmt_close(stmt);
     mysql_close(conn);
 
-    struct timespec spec;
-    clock_gettime(CLOCK_REALTIME, &spec);
-    spec.tv_sec += 120;
-    spec.tv_nsec = 0;
+    struct timespec *spec = malloc(sizeof(struct timespec));
+    spec->tv_sec = time(NULL) + 5;
+    spec->tv_nsec = 0;
 
-    status = sigtimedwait(&set, NULL, &spec);
-    if (EINVAL == status) {
+    status = sigtimedwait(&set, NULL, spec);
+    if (status != -1) {
         OUTPUT_DEBUG_STDERR(stderr, "%s", "bad signals");
         exit(status);
-    } else if (status != EINTR && status != EAGAIN) {
+    } else if (EINVAL != status && status != EINTR && status != EAGAIN) {
         OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNAL RECEIVED");
         struct updateArgs *dbArgs = updateHash[idx];
         writeUpdate(dbArgs->frequency, dbArgs->timeinfo, dbArgs->nbyte);
