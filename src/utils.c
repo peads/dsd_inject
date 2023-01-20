@@ -134,20 +134,11 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     OUTPUT_DEBUG_STDERR(stderr, "%s", "UPDATING FREQUENCY");
     
     int status;
-    MYSQL_STMT *stmt;
     MYSQL_BIND bind[3];
     MYSQL *conn = initializeMySqlConnection();
     MYSQL_TIME *dateDemod = generateMySqlTimeFromTm(timeinfo);
-    char buffer[26];
     unsigned long length = LENGTH_OF(UPDATE_FREQUENCY);
-
-    strftime(buffer, 26, "%Y-%m-%dT%H:%M:%S:%z\n", timeinfo);
-
-    OUTPUT_DEBUG_STDERR(stderr, "Update length of string: %lu", length);
-    OUTPUT_INFO_STDERR(stderr, "writeUpdate :: " UPDATE_FREQUENCY_INFO, 
-        buffer, frequency, buffer);
-
-    stmt = generateMySqlStatment(UPDATE_FREQUENCY, conn, length);
+    MYSQL_STMT *stmt = generateMySqlStatment(UPDATE_FREQUENCY, conn, length);
 
     memset(bind, 0, sizeof(bind));
     memset(&bind[0], 0, sizeof(MYSQL_BIND));
@@ -164,17 +155,26 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     bind[1].buffer_length = nbyte;
     bind[1].length = &nbyte;
     bind[1].is_null = 0;
-
-    memcpy(&bind[2], &bind[0], sizeof(MYSQL_BIND));
     
+    bind[2].buffer_type = MYSQL_TYPE_DATETIME;
+    bind[2].buffer = (char *) dateDemod;
+    bind[2].length = 0;
+    bind[2].is_null = 0;
+
+    //memcpy(&bind[2], &bind[0], sizeof(MYSQL_BIND));
+    
+    char buffer[30];
     MYSQL_TIME *ts = bind[0].buffer;
-    fprintf(stderr, "%04d-%02d-%02d %02d:%02d:%02d\n",
+    fprintf(stderr, "writeUpdate :: %04d-%02d-%02d %02d:%02d:%02d\n",
                  ts->year, ts->month, ts->day,
                  ts->hour, ts->minute, ts->second);
+
     ts = bind[2].buffer;
-    fprintf(stderr, "%04d-%02d-%02d %02d:%02d:%02d\n",
+    sprintf(buffer, "writeUpdate :: %04d-%02d-%02d %02d:%02d:%02d\n",
                  ts->year, ts->month, ts->day,
                  ts->hour, ts->minute, ts->second);
+    OUTPUT_INFO_STDERR(stderr, "writeUpdate :: " UPDATE_FREQUENCY_INFO, 
+        buffer, frequency, buffer);
 
     status = mysql_stmt_bind_param(stmt, bind);
     if (status != 0) {
