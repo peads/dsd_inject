@@ -191,6 +191,7 @@ void *startUpdatingFrequency(void *ctx) {
                      tzMin,
                      characteristic,
                      mantissa);
+        sem_wait(&semRw);
 
         OUTPUT_DEBUG_STDERR(stderr, "vars set: %d\n", ret);
 
@@ -226,6 +227,7 @@ void *startUpdatingFrequency(void *ctx) {
             free(args->timeinfo);
             free(args);
         }
+        sem_post(&semRw);
     } while (isRunning && ret != EOF);
 
     pthread_exit(&args->pid);
