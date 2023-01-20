@@ -254,6 +254,8 @@ void *startUpdatingFrequency(void *ctx) {
             args->frequency[last] = '\0';
             args->nbyte = nbyte;
             OUTPUT_DEBUG_STDERR(stderr, "FREQUENCY: %s", args->frequency);
+            
+            writeFrequencyPing(args->frequency, nbyte);
 
             time_t idx = (loopTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
             struct notifyArgs *nargs = malloc(sizeof(struct notifyArgs));

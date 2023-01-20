@@ -93,42 +93,28 @@ MYSQL_STMT *generateMySqlStatment(char *statement, MYSQL *conn, long size) {
     return NULL;
 }
 
-void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "UPDATING FREQUENCY");
+void writeFrequencyPing(char *frequency, unsigned long nbyte) {
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "UPSERTING FREQUENCY PING");
 
     int status;
     MYSQL_STMT *stmt;
-    MYSQL_TIME *dateDemod = generateMySqlTimeFromTm(timeinfo);
-    MYSQL_BIND dateDemodBind;
-    MYSQL_BIND frequencyBind;
     MYSQL_BIND bind[1];
-    memset(&dateDemodBind, 0, sizeof(MYSQL_BIND));
-    memset(&frequencyBind, 0, sizeof(MYSQL_BIND));
-
-    memset(&bind, 0, sizeof(MYSQL_BIND));
-
-    dateDemodBind.buffer_type = MYSQL_TYPE_DATETIME;
-    dateDemodBind.buffer = (char *) dateDemod;
-    dateDemodBind.length = 0;
-    dateDemodBind.is_null = 0;
-
-    memcpy(&bind[0], &dateDemodBind, sizeof(dateDemodBind));
-
     MYSQL *conn = initializeMySqlConnection();
 
-    frequencyBind.buffer_type = MYSQL_TYPE_DECIMAL;
-    frequencyBind.buffer = frequency;
-    frequencyBind.buffer_length = nbyte;
-    frequencyBind.length = &nbyte;
-    frequencyBind.is_null = 0;
+    memset(&bind[0], 0, sizeof(MYSQL_BIND));
+    memset(bind, 0, sizeof(bind));
 
     unsigned long length = LENGTH_OF(INSERT_FREQUENCY);
     OUTPUT_DEBUG_STDERR(stderr, "Insert length of string: %u", length);
-    OUTPUT_INFO_STDERR(stderr,"writeUpdate :: "  INSERT_FREQUENCY_INFO, frequency);
+    OUTPUT_INFO_STDERR(stderr, "writeFrequencyPing :: "  INSERT_FREQUENCY_INFO, frequency);
 
     stmt = generateMySqlStatment(INSERT_FREQUENCY, conn, length);
 
-    memcpy(&bind[0], &frequencyBind, sizeof(frequencyBind));
+    bind[0].buffer_type = MYSQL_TYPE_DECIMAL;
+    bind[0].buffer = frequency;
+    bind[0].buffer_length = nbyte;
+    bind[0].length = &nbyte;
+    bind[0].is_null = 0;
 
     status = mysql_stmt_bind_param(stmt, bind);
     if (status != 0) {
@@ -141,29 +127,50 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     }
 
     mysql_stmt_close(stmt);
+    mysql_close(conn);
+}
 
+void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
+    OUTPUT_DEBUG_STDERR(stderr, "%s", "UPDATING FREQUENCY");
+    
+    int status;
+    MYSQL_STMT *stmt;
+    MYSQL_BIND bind[3];
+    MYSQL *conn = initializeMySqlConnection();
+    MYSQL_TIME *dateDemod = generateMySqlTimeFromTm(timeinfo);
     char buffer[26];
+    unsigned long length = LENGTH_OF(UPDATE_FREQUENCY);
+
     strftime(buffer, 26, "%Y-%m-%dT%H:%M:%S:%z\n", timeinfo);
 
-    length = LENGTH_OF(UPDATE_FREQUENCY);
     OUTPUT_DEBUG_STDERR(stderr, "Update length of string: %lu", length);
-    OUTPUT_INFO_STDERR(stderr, "writeUpdate :: " UPDATE_FREQUENCY_INFO, buffer, frequency, buffer);
+    OUTPUT_INFO_STDERR(stderr, "writeUpdate :: " UPDATE_FREQUENCY_INFO, 
+        buffer, frequency, buffer);
 
     stmt = generateMySqlStatment(UPDATE_FREQUENCY, conn, length);
 
-    MYSQL_BIND bnd[3];
-    memset(bnd, 0, sizeof(bnd));
-    memset(&bnd[0], 0, sizeof(MYSQL_BIND));
-    memset(&bnd[1], 0, sizeof(MYSQL_BIND));
-    memset(&bnd[2], 0, sizeof(MYSQL_BIND));
+    memset(bind, 0, sizeof(bind));
+    memset(&bind[0], 0, sizeof(MYSQL_BIND));
+    memset(&bind[1], 0, sizeof(MYSQL_BIND));
+    memset(&bind[2], 0, sizeof(MYSQL_BIND));
+    
+    bind[0].buffer_type = MYSQL_TYPE_DATETIME;
+    bind[0].buffer = (char *) dateDemod;
+    bind[0].length = 0;
+    bind[0].is_null = 0;
 
-    memcpy(&bnd[0], &dateDemodBind, sizeof(MYSQL_BIND));
-    memcpy(&bnd[1], &frequencyBind, sizeof(MYSQL_BIND));
-    memcpy(&bnd[2], &dateDemodBind, sizeof(MYSQL_BIND));
+    bind[1].buffer_type = MYSQL_TYPE_DECIMAL;
+    bind[1].buffer = frequency;
+    bind[1].buffer_length = nbyte;
+    bind[1].length = &nbyte;
+    bind[1].is_null = 0;
 
-    OUTPUT_INFO_STDERR(stderr, "writeUpdate :: %s %s %s", bnd[0].buffer, bnd[1].buffer, bnd[2].buffer);
+    memcpy(&bind[2], &bind[0], sizeof(MYSQL_BIND));
 
-    status = mysql_stmt_bind_param(stmt, bnd);
+    OUTPUT_INFO_STDERR(stderr, "writeUpdate :: %s %s %s", 
+        bind[0].buffer, bind[1].buffer, bind[2].buffer);
+
+    status = mysql_stmt_bind_param(stmt, bind);
     if (status != 0) {
         doExit(conn);
     }
