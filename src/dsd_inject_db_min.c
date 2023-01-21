@@ -123,7 +123,7 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
         }
 
         pthread_t upid = 0;
-        const char *fileDes = "$PWD/db-out";
+        const char *fileDes = "$PWD/dsd_inject/read_rtl_fm_loop.sh"; //"$PWD/db-out"
         pthread_create(&upid, NULL, startUpdatingFrequency, (void *) fileDes);
         pthread_detach(upid);
     }

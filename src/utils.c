@@ -17,6 +17,7 @@
 //
 // Created by Patrick Eads on 1/15/23.
 //
+#define DATE_STRING "%04d-%02d-%02d %02d:%02d:%02d"
 
 #include "utils.h"
 #include <unistd.h>
@@ -200,16 +201,15 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     bind[2].is_null = 0;
 
     //memcpy(&bind[2], &bind[0], sizeof(MYSQL_BIND));
-    const char *dateString = "%04d-%02d-%02d %02d:%02d:%02d"; 
     MYSQL_TIME *ts = bind[0].buffer;
     OUTPUT_DEBUG_STDERR(stderr, 
-            "writeUpdate :: " dateString,
+            "writeUpdate :: " DATE_STRING,
              ts->year, ts->month, ts->day,
              ts->hour, ts->minute, ts->second);
 
     char buffer[36];
     ts = bind[2].buffer;
-    sprintf(buffer, dateString,ts->year, ts->month, ts->day,
+    sprintf(buffer, DATE_STRING,ts->year, ts->month, ts->day,
                  ts->hour, ts->minute, ts->second);
     OUTPUT_DEBUG_STDERR(stderr, 
         "writeUpdate :: " UPDATE_FREQUENCY_INFO, 
@@ -269,20 +269,6 @@ void *notifyInsertThread(void *ctx) {
 
 void *waitForUpdate(void *ctx) {
     time_t idx = *((time_t *) ctx);
-    //sigset_t set;
-
-    //sigemptyset(&set);
-    //sigaddset(&set, SIGUSR2);
-    
-    //int status = pthread_sigmask(SIG_BLOCK, &set, NULL);
-    //if (status != 0) {
-    //    exit(-1);
-    //}
-    
-    //status = sigwaitinfo(&set, NULL);
-    //OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNAL RECEIVED");
-    //status = pthread_sigmask(SIG_UNBLOCK, &set, NULL);
-   
     int i = 0; 
     struct updateArgs *dbArgs;
 
@@ -290,8 +276,6 @@ void *waitForUpdate(void *ctx) {
         OUTPUT_DEBUG_STDERR(stderr, "waitForUpdate :: pid: %lu @ INDEX: %lu", pidHash[idx], idx);
 
         dbArgs = updateHash[idx];
-
-        OUTPUT_DEBUG_STDERR(stderr, "Wait status returned %d", status);
 
         if (dbArgs != NULL) {
             OUTPUT_DEBUG_STDERR(stderr, "waitForUpdate :: DATE: %d-%d-%dT%d:%d:%d", 
