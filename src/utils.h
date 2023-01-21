@@ -44,8 +44,6 @@
 #define OUTPUT_DEBUG_STDERR(file, msg, subs ...)  fprintf(file, msg "\n", subs)
 #endif
 
-#include <semaphore.h>
-
 #if !(defined(DEBUG) || defined(TRACE))
 #define OUTPUT_INFO_STDERR(file, msg, subs ...)  //
 #else

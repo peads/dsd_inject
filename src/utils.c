@@ -20,18 +20,54 @@
 
 #include "utils.h"
 #include <unistd.h>
+#include <semaphore.h>
 
 extern char *db_pass;
 extern char *db_host;
 extern char *db_user;
 extern char *schema;
 
-extern struct updateArgs *updateHash[];
-
-pthread_t pidHash[SIX_DAYS_IN_SECONDS] = {0};
+ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
+static struct updateArgs *updateHash[SIX_DAYS_IN_SECONDS] = {NULL};
+static pthread_t pidHash[SIX_DAYS_IN_SECONDS] = {0};
 time_t updateStartTime;
 int isRunning = 0;
 FILE *fd;
+static sem_t sem;
+
+void onExit(void) {
+    int status;
+    isRunning = 0;
+
+    if ((status = sem_close(&sem)) != 0) {
+        fprintf(stderr, "unable to unlink semaphore. status: %s\n", strerror(status));
+    } else {
+        fprintf(stderr, "%s", "semaphore destroyed\n");
+    }
+
+    if ((status = pclose(fd)) != 0) {
+        fprintf(stderr, "Error closing awk script. status %s\n", strerror(status));
+    }
+
+    next_write = NULL;
+}
+
+void *insertDataThread(void *ctx) {
+
+    struct insertArgs *args = (struct insertArgs *) ctx;
+    const time_t insertTime = time(NULL);
+
+    sem_wait(&sem);
+
+    writeInsertToDatabase(insertTime, args->buf, args->nbyte);
+
+    sem_post(&sem);
+
+    free(args->buf);
+    free(ctx);
+
+    pthread_exit(&args->pid);
+}
 
 void doExit(MYSQL *con) {
 
@@ -346,8 +382,7 @@ void *startUpdatingFrequency(void *ctx) {
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering inject::startUpdatingFrequency");
     updateStartTime = time(NULL);
     isRunning = 1;
-    struct insertArgs *args = (struct insertArgs *) ctx;
-    char *portname = args->buf;
+    char *portname = (char *) ctx;
     unsigned long size = 6 + strchr(portname, '\0') - ((char *) portname);
     char cmd[size];
     strcpy(cmd, portname);
@@ -421,6 +456,6 @@ void *startUpdatingFrequency(void *ctx) {
         }
     } while (isRunning && ret != EOF);
 
-    pthread_exit(&args->pid);
+    return NULL;
 }
 

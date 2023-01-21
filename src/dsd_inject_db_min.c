@@ -21,20 +21,17 @@
 #include "utils.h"
 
 extern time_t updateStartTime;
-extern int isRunning;
 extern FILE *fd;
 
-struct updateArgs *updateHash[SIX_DAYS_IN_SECONDS] = {NULL};
 const char *db_pass;
 const char *db_host;
 const char *db_user;
 const char *schema;
 
-static sem_t sem;
-
+extern void *insertDataThread(void *ctx);
 extern void *startUpdatingFrequency(void *ctx);
-
-static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
+extern void onExit(void);
+extern ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset);
 
 void onSignal(int sig) {
 
@@ -107,47 +104,11 @@ void initializeEnv() {
     }
 }
 
-void *run(void *ctx) {
-
-    struct insertArgs *args = (struct insertArgs *) ctx;
-    const time_t insertTime = time(NULL);
-
-    sem_wait(&sem);
-
-    writeInsertToDatabase(insertTime, args->buf, args->nbyte);
-
-    sem_post(&sem);
-
-    free(args->buf);
-    free(ctx);
-
-    pthread_exit(&args->pid);
-}
-
-static void onExit(void) {
-    int status;
-    isRunning = 0;
-
-    if ((status = sem_close(&sem)) != 0) {
-        fprintf(stderr, "unable to unlink semaphore. status: %s\n", strerror(status));
-    } else {
-        fprintf(stderr, "%s", "semaphore destroyed\n");
-    }
-
-    if ((status = pclose(fd)) != 0) {
-        fprintf(stderr, "Error closing awk script. status %s\n", strerror(status));
-    }
-
-    next_write = NULL;
-}
-
 ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
 
     if (NULL == next_write) {
         initializeEnv();
         initializeSignalHandlers();
-        sem_init(&sem, 0, SEM_RESOURCES);
-
  
         fprintf(stderr, "%s", "wrapping write\n");
         next_write = dlsym(RTLD_NEXT, "write");
@@ -162,11 +123,8 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
         }
 
         pthread_t upid = 0;
-        struct insertArgs *uargs = malloc(sizeof(struct insertArgs));
-        uargs->buf = "/home/peads/dsd_inject/read_rtl_fm_loop.sh";
-        uargs->pid = upid;
-
-        pthread_create(&uargs->pid, NULL, startUpdatingFrequency, (void *) uargs);
+        const char *fileDes = "$PWD/db-out";
+        pthread_create(&upid, NULL, startUpdatingFrequency, (void *) fileDes);
         pthread_detach(upid);
     }
 
@@ -177,7 +135,7 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
 
     memcpy(args->buf, buf, nbyte);
 
-    pthread_create(&pid, NULL, run, (void *) args);
+    pthread_create(&pid, NULL, insertDataThread, (void *) args);
     pthread_detach(pid);
     args->pid = pid;
 
