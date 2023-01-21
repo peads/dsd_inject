@@ -32,6 +32,7 @@ const char *schema;
 
 static sem_t sem;
 
+extern void *startUpdatingFrequency(void *ctx);
 
 static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
 
@@ -138,92 +139,6 @@ static void onExit(void) {
     }
 
     next_write = NULL;
-}
-
-void *startUpdatingFrequency(void *ctx) {
-
-    if (isRunning) {
-        return NULL;
-    }
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering inject::startUpdatingFrequency");
-    updateStartTime = time(NULL);
-    isRunning = 1;
-    struct insertArgs *args = (struct insertArgs *) ctx;
-    char *portname = args->buf;
-    unsigned long size = 6 + strchr(portname, '\0') - ((char *) portname);
-    char cmd[size];
-    strcpy(cmd, portname);
-
-    OUTPUT_DEBUG_STDERR(stderr, "%s size: %lu", cmd, size);
-
-    fd = popen(cmd, "r");
-    if (fd == NULL) {
-        exit(-1);
-    }
-
-    int ret;
-
-    do {
-        struct updateArgs *args = malloc(sizeof(struct updateArgs));
-
-        struct tm timeinfo;
-        int year = 0;
-        int month = 0;
-        int mantissa = 0;
-        int characteristic = 0;
-        int tzHours = 0;
-        int tzMin = 0;
-
-        ret = fscanf(fd, "%d-%d-%dT%d:%d:%d+%d:%d;%d.%d\n",
-                     &year,
-                     &month,
-                     &timeinfo.tm_mday,
-                     &timeinfo.tm_hour,
-                     &timeinfo.tm_min,
-                     &timeinfo.tm_sec,
-                     &tzHours,
-                     &tzMin,
-                     &characteristic,
-                     &mantissa);
-        OUTPUT_DEBUG_STDERR(stderr, "vars set: %d\n", ret);
-
-        if (ret == 10) {
-            time_t loopTime = mktime(&timeinfo);
-            OUTPUT_DEBUG_STDERR(stderr, "DELTA TIME: %ld", loopTime - updateStartTime);
-
-            timeinfo.tm_year = year - 1900;
-            timeinfo.tm_mon = month - 1;
-            timeinfo.tm_isdst = 0;
-            
-            args->timeinfo = timeinfo;
-            
-            char frequency[8];
-            sprintf(frequency, "%d.%d", characteristic, mantissa);
-
-            OUTPUT_DEBUG_STDERR(stderr, "Size of string: %ld\n", 1 + strchr(frequency, '\0') - frequency);
-            //unsigned long nbyte = 8;
-
-            unsigned long last = strchr(frequency, '\0') - frequency;
-            unsigned long nbyte = 1 + last;
-            strcpy(args->frequency, frequency);
-            args->frequency[last] = '\0';
-            args->nbyte = nbyte;
-            OUTPUT_DEBUG_STDERR(stderr, "FREQUENCY: %s", args->frequency);
-            
-            writeFrequencyPing(args->frequency, nbyte);
-
-            time_t idx = (loopTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
-            struct notifyArgs *nargs = malloc(sizeof(struct notifyArgs));
-
-            nargs->idx = idx;
-            nargs->args = args;
-            nargs->pid = 0;
-            pthread_create(&nargs->pid, NULL, notifyInsertThread, nargs);
-            pthread_detach(nargs->pid);
-        }
-    } while (isRunning && ret != EOF);
-
-    pthread_exit(&args->pid);
 }
 
 ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
