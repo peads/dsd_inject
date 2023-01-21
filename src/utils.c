@@ -261,7 +261,7 @@ void *notifyInsertThread(void *ctx) {
 
         sleep(1);
         OUTPUT_DEBUG_STDERR(stderr, "notifyInsertThread :: Waited: %d seconds", i);
-    } while (pid <= 0 && i++ < 10);
+    } while (pid <= 0 && i++ < 5);
     
     OUTPUT_INFO_STDERR(stderr, "%s", "notifyInsertThread :: Failed notification for update");
     pthread_exit(&nargs->pid);
@@ -290,7 +290,7 @@ void *waitForUpdate(void *ctx) {
         }
         sleep(1);
         OUTPUT_DEBUG_STDERR(stderr, "waitForUpdate :: Waited: %d seconds", i);
-    } while (NULL == dbArgs && i++ < 10);
+    } while (NULL == dbArgs && i++ < 5);
 
     OUTPUT_INFO_STDERR(stderr, "%s", "waitForUpdate :: Failed waiting to update");
     return NULL;
