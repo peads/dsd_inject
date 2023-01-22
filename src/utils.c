@@ -45,6 +45,7 @@ void *notifyInsertThread(void *ctx);
 time_t updateStartTime;
 int isRunning = 0;
 sem_t sem;
+sem_t sem1;
 
 char *getEnvVarOrDefault(char *name, char *def) {
 
@@ -61,6 +62,7 @@ void initializeEnv() {
 
     OUTPUT_DEBUG_STDERR(stderr, "Semaphore resources: %d\n", SEM_RESOURCES);
     sem_init(&sem, 0, SEM_RESOURCES);
+    sem_init(&sem1, 0, SEM_RESOURCES);
 
     db_pass = getenv("DB_PASS");
     if (db_pass) {
@@ -313,12 +315,12 @@ void *runInsertThread(void *ctx) {
 }
 
 void *runUpdateThread(void *ctx) {
-    sem_wait(&sem);
+    sem_wait(&sem1);
     struct updateArgs *args = (struct updateArgs *) ctx;
 
     writeUpdate(args->frequency, args->t, args->nbyte);
 
-    sem_post(&sem);
+    sem_post(&sem1);
     pthread_exit(&args->pid);
 }
 

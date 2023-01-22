@@ -36,6 +36,7 @@
 #include "utils.h"
 
 extern sem_t sem;
+extern sem_t sem1;
 extern int isRunning;
 
 extern const char *db_pass;
@@ -54,6 +55,12 @@ void onExit(void) {
     isRunning = 0;
 
     if ((status = sem_close(&sem)) != 0) {
+        fprintf(stderr, "unable to unlink semaphore. status: %s\n", strerror(status));
+    } else {
+        fprintf(stderr, "%s", "semaphore destroyed\n");
+    }
+    
+    if ((status = sem_close(&sem1)) != 0) {
         fprintf(stderr, "unable to unlink semaphore. status: %s\n", strerror(status));
     } else {
         fprintf(stderr, "%s", "semaphore destroyed\n");
