@@ -198,7 +198,8 @@ void writeUpdate(char *frequency, time_t t, unsigned long nbyte) {
     free(dateDemod);
 }
 
-void writeInsertToDatabase(const void *buf, size_t nbyte) {
+void writeInsert(const void *buf, size_t nbyte) {
+    OUTPUT_INFO_STDERR(stderr, "%s\n", "INSERTING DATA");
 
     int status = 0;
  
@@ -299,13 +300,25 @@ void parseLineData(char *frequency, double *avgRms, double *squelch, char *buffe
     }
 }
 
-void *runUpdateThread(void *ctx) {
+void *runInsertThread(void *ctx) {
     sem_wait(&sem);
+    struct insertArgs *args = (struct insertArgs *) ctx;
+
+    writeInsert(args->buf, args->nbyte);
+
+    sem_post(&sem);
+    free(args->buf);
+    free(args);
+    pthread_exit(&args->pid);
+}
+
+void *runUpdateThread(void *ctx) {
+    //sem_wait(&sem);
     struct updateArgs *args = (struct updateArgs *) ctx;
 
     writeUpdate(args->frequency, args->t, args->nbyte);
 
-    sem_post(&sem);
+    //sem_post(&sem);
     pthread_exit(&args->pid);
 }
 

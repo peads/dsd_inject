@@ -44,9 +44,8 @@ extern const char *db_user;
 extern const char *schema;
 
 extern void *runFrequencyUpdatingThread(void *ctx);
-extern void writeInsertToDatabase(const void *buf, size_t nbyte);
 extern void initializeEnv();
-extern void *runCheckAndFixZeroDatesThread(void *);
+extern void *runInsertThread(void *ctx);
 
 static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
 
@@ -130,7 +129,12 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
         pthread_detach(upid);
     }
 
-    writeInsertToDatabase(buf, nbyte);
+    struct insertArgs *args = malloc(sizeof(struct insertArgs)); 
+    args->buf = malloc(nbyte * sizeof(char) + 1);
+    args->nbyte = nbyte;
+    args->pid = 0;
+    memcpy(args->buf, buf, nbyte);
+    pthread_create(&args->pid, NULL, runInsertThread, args);
 
     return next_write(fildes, buf, nbyte, offset);
 }

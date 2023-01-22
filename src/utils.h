@@ -59,11 +59,5 @@ struct updateArgs {
     unsigned long nbyte;
     pthread_t pid;
 };
-
-struct notifyArgs {
-    pthread_t pid;
-    time_t idx;
-    struct updateArgs *args;
-};
 #endif //UTILS_H
 
