@@ -20,24 +20,6 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#define _GNU_SOURCE
-
-#include <mysql.h>
-#include <dlfcn.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <string.h>
-#include <pthread.h>
-#include <errno.h>
-
-#if defined(__USE_XOPEN_EXTENDED) || defined(__USE_MISC)
-#undef __USE_MISC
-#undef __USE_XOPEN_EXTENDED
-#endif
-
-#include <signal.h>
-
 #ifndef TRACE
 #define OUTPUT_DEBUG_STDERR(file, msg, subs ...)  //
 #else
@@ -50,6 +32,8 @@
 #define OUTPUT_INFO_STDERR(file, msg, subs ...)  fprintf(file, msg "\n", subs)
 #endif
 
+#define MAX_BUF 255
+#define WHILE_READ "while read var; do echo  $var; done <"
 #define SEM_RESOURCES 128
 #define LENGTH_OF(arr) (sizeof(arr) / sizeof(*(arr)))
 #define SIX_DAYS_IN_SECONDS 518400
@@ -59,6 +43,7 @@
 #define UPDATE_FREQUENCY_INFO "UPDATE imbedata SET date_decoded=%s, frequency=%s WHERE date_recorded=%s;"
 #define INSERT_DATA "INSERT INTO imbedata (date_recorded, data) VALUES (?, ?);"
 #define INSERT_INFO "INSERT INTO imbedata (date_recorded, data) VALUES (%s, (data of size: %zu));"
+#define DATE_STRING "%04d-%02d-%02d %02d:%02d:%02d"
 
 struct insertArgs {
     void *buf;
@@ -78,32 +63,5 @@ struct notifyArgs {
     time_t idx;
     struct updateArgs *args;
 };
-
-/* util functions */
-//void doExit(MYSQL *conn);
-//
-//void onSignal(int sig);
-//
-//void initializeSignalHandlers();
-//
-//char *getEnvVarOrDefault(char *name, char *def);
-//
-//void initializeEnv();
-//
-//MYSQL *initializeMySqlConnection(MYSQL_BIND *bind);
-//
-//MYSQL_TIME *generateMySqlTimeFromTm(const struct tm *timeinfo);
-//
-//MYSQL_STMT *generateMySqlStatment(char *statement, MYSQL *conn, int *status, long size);
-//
-//void *startUpdatingFrequency(void *argv);
-//
-void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte);
-
-void writeInsertToDatabase(time_t time, void *buf, size_t nbyte);
-
-void writeFrequencyPing(char *frequency, unsigned long nbyte);
-
-void *notifyInsertThread(void *ctx);
 #endif //UTILS_H
 

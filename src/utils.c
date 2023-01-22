@@ -17,57 +17,61 @@
 //
 // Created by Patrick Eads on 1/15/23.
 //
-#define DATE_STRING "%04d-%02d-%02d %02d:%02d:%02d"
+#include <mysql.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <string.h>
+#include <pthread.h>
+#include <errno.h>
+#include <semaphore.h>
+#include <signal.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "utils.h"
-#include <unistd.h>
-#include <semaphore.h>
 
-extern char *db_pass;
-extern char *db_host;
-extern char *db_user;
-extern char *schema;
+const char *db_pass;
+const char *db_host;
+const char *db_user;
+const char *schema;
 
-ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
+void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte);
+void writeFrequencyPing(char *frequency, unsigned long nbyte);
+void *notifyInsertThread(void *ctx);
+
 static struct updateArgs *updateHash[SIX_DAYS_IN_SECONDS] = {NULL};
 static pthread_t pidHash[SIX_DAYS_IN_SECONDS] = {0};
 time_t updateStartTime;
 int isRunning = 0;
-FILE *fd;
-static sem_t sem;
+sem_t sem;
 
-void onExit(void) {
-    int status;
-    isRunning = 0;
+char *getEnvVarOrDefault(char *name, char *def) {
 
-    if ((status = sem_close(&sem)) != 0) {
-        fprintf(stderr, "unable to unlink semaphore. status: %s\n", strerror(status));
-    } else {
-        fprintf(stderr, "%s", "semaphore destroyed\n");
+    char *result = getenv(name);
+
+    if (result) {
+        return result;
     }
-
-    if ((status = pclose(fd)) != 0) {
-        fprintf(stderr, "Error closing awk script. status %s\n", strerror(status));
-    }
-
-    next_write = NULL;
+    return def;
 }
 
-void *insertDataThread(void *ctx) {
+void initializeEnv() {
+    updateStartTime = time(NULL);
 
-    struct insertArgs *args = (struct insertArgs *) ctx;
-    const time_t insertTime = time(NULL);
+    fprintf(stderr, "Semaphore resources: %d", SEM_RESOURCES);
 
-    sem_wait(&sem);
-
-    writeInsertToDatabase(insertTime, args->buf, args->nbyte);
-
-    sem_post(&sem);
-
-    free(args->buf);
-    free(ctx);
-
-    pthread_exit(&args->pid);
+    db_pass = getenv("DB_PASS");
+    if (db_pass) {
+        db_host = getEnvVarOrDefault("DB_HOST", "127.0.0.1");
+        db_user = getEnvVarOrDefault("DB_USER", "root");
+        schema = getEnvVarOrDefault("SCHEMA", "scanner");
+    } else {
+        fprintf(stderr, "%s", "No database user password defined.");
+        exit(-1);
+    }
 }
 
 void doExit(MYSQL *con) {
@@ -99,10 +103,9 @@ MYSQL *initializeMySqlConnection() {
     return conn;
 }
 
-MYSQL_TIME *generateMySqlTimeFromTm(const struct tm *timeinfo) {
+MYSQL_TIME *generateMySqlTimeFromTm(MYSQL_TIME *dateDecoded, const struct tm *timeinfo) {
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering utils::generateMySqlTimeFromTm");
-    MYSQL_TIME *dateDecoded = malloc(sizeof(*dateDecoded));
 
     dateDecoded->year = timeinfo->tm_year + 1900; // struct tm stores year as years since 1900
     dateDecoded->month = timeinfo->tm_mon + 1; // struct tm stores month as months since January (0-11)
@@ -139,8 +142,8 @@ void writeFrequencyPing(char *frequency, unsigned long nbyte) {
     MYSQL_BIND bind[1];
     MYSQL *conn = initializeMySqlConnection();
 
-    memset(&bind[0], 0, sizeof(MYSQL_BIND));
     memset(bind, 0, sizeof(bind));
+    //memset(&bind[0], 0, sizeof(MYSQL_BIND));
 
     unsigned long length = LENGTH_OF(INSERT_FREQUENCY);
     OUTPUT_DEBUG_STDERR(stderr, "Insert length of string: %u", length);
@@ -174,17 +177,16 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     int status;
     MYSQL_BIND bind[3];
     MYSQL *conn = initializeMySqlConnection();
-    MYSQL_TIME *dateDemod = generateMySqlTimeFromTm(timeinfo);
+    MYSQL_TIME *dateDemod = malloc(sizeof(MYSQL_TIME));
+
+    generateMySqlTimeFromTm(dateDemod, timeinfo);
     unsigned long length = LENGTH_OF(UPDATE_FREQUENCY);
     MYSQL_STMT *stmt = generateMySqlStatment(UPDATE_FREQUENCY, conn, length);
 
     memset(bind, 0, sizeof(bind));
-    memset(&bind[0], 0, sizeof(MYSQL_BIND));
-    memset(&bind[1], 0, sizeof(MYSQL_BIND));
-    memset(&bind[2], 0, sizeof(MYSQL_BIND));
-    
+
     bind[0].buffer_type = MYSQL_TYPE_DATETIME;
-    bind[0].buffer = (char *) dateDemod;
+    bind[0].buffer = dateDemod;
     bind[0].length = 0;
     bind[0].is_null = 0;
 
@@ -194,13 +196,11 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     bind[1].length = &nbyte;
     bind[1].is_null = 0;
     
-    bind[2].buffer_type = MYSQL_TYPE_DECIMAL;
-    bind[2].buffer = frequency;
-    bind[2].buffer_length = nbyte;
-    bind[2].length = &nbyte;
+    bind[2].buffer_type = MYSQL_TYPE_DATETIME;
+    bind[2].buffer = dateDemod;
+    bind[2].length = 0;
     bind[2].is_null = 0;
 
-    //memcpy(&bind[2], &bind[0], sizeof(MYSQL_BIND));
     MYSQL_TIME *ts = bind[0].buffer;
     OUTPUT_DEBUG_STDERR(stderr, 
             "writeUpdate :: " DATE_STRING,
@@ -296,7 +296,8 @@ void *waitForUpdate(void *ctx) {
     return NULL;
 }
 
-void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
+void writeInsertToDatabase(const void *buf, size_t nbyte) {
+    time_t insertTime = time(NULL);
 
     int status = 0;
  
@@ -307,14 +308,14 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
     MYSQL_BIND bind[2];
     MYSQL_STMT *stmt;
     MYSQL *conn;
-    MYSQL_TIME *dateDecoded;
+    MYSQL_TIME *dateDecoded = malloc(sizeof(MYSQL_TIME));
     
     struct tm *timeinfo;
     timeinfo = localtime(&insertTime);
-    dateDecoded = generateMySqlTimeFromTm(timeinfo);
+    generateMySqlTimeFromTm(dateDecoded, timeinfo);
 
+    memset(bind, 0, sizeof(bind));
 
-    memset(bind, 0, sizeof(*bind));
     bind[0].buffer_type = MYSQL_TYPE_DATETIME;
     bind[0].buffer = dateDecoded;
     bind[0].length = 0;
@@ -349,13 +350,77 @@ void writeInsertToDatabase(time_t insertTime, void *buf, size_t nbyte) {
     mysql_stmt_close(stmt);
     mysql_close(conn);
 
-    time_t idx = (insertTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
-    pthread_t pid = 0;
-    pthread_create(&pid, NULL, waitForUpdate, &idx);
-    pthread_detach(pid);
-    pidHash[idx] = pid;
-    OUTPUT_DEBUG_STDERR(stderr, "writeInsertToDatabase :: pid: %lu @ INDEX: %lu", pidHash[idx], idx);
-    free((void *) dateDecoded);
+    //time_t idx = (insertTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
+    //pthread_t pid = 0;
+    //pthread_create(&pid, NULL, waitForUpdate, &idx);
+    //pthread_detach(pid);
+    //pidHash[idx] = pid;
+    //OUTPUT_DEBUG_STDERR(stderr, "writeInsertToDatabase :: pid: %lu @ INDEX: %lu", pidHash[idx], idx);
+}
+
+void sshiftLeft(char *s, int n)
+{
+   char* s2 = s + n;
+   while ( *s2 )
+   {
+      *s = *s2;
+      ++s;
+      ++s2;
+   }
+   *s = '\0';
+}
+
+double parseDbFloat(char *s) {
+    unsigned long nbyte = 1 + strchr(strchr(s, ' ') + 1, ' ') - s;
+    s[nbyte - 1] = '\0';
+    double result = atof(s);
+    //fprintf(stderr, "%.2f\n", result);
+    return result;
+}
+
+void *parseFrequency(char *frequency, char *token) {
+    char characteristic[7];
+    char mantissa[7];
+
+    token[6] = '\0';
+    unsigned long nbyte = 1 + strchr(token, '\0') - token;
+
+    strcpy(characteristic, token);
+    strcpy(mantissa, token);
+    
+    characteristic[(nbyte - 1) / 2] = '\0'; 
+
+    sshiftLeft(mantissa, 3);
+    sprintf(frequency, "%s.%s", characteristic, mantissa);
+    //fprintf(stderr, "%s MHz\n", frequency);
+    
+    return frequency;
+}
+
+void parseLineData(char *frequency, double *avgDb, double *squelch, char *buffer) {
+    int i = 0;
+    char *token = strtok(buffer, ",");
+
+    while (token != NULL) {
+        switch (i++) {
+            case 0:
+                parseFrequency(frequency, token);
+                break;
+            case 1:
+                *avgDb = parseDbFloat(token);
+                break;
+            case 4:
+                if (*squelch < 0.0) {
+                    *squelch = parseDbFloat(token);
+                }
+                break;
+            case 2:
+            case 3:
+            default:
+                break;                        
+        }
+        token = strtok(NULL, ",");
+    }
 }
 
 void *startUpdatingFrequency(void *ctx) {
@@ -363,82 +428,49 @@ void *startUpdatingFrequency(void *ctx) {
     if (isRunning) {
         return NULL;
     }
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering inject::startUpdatingFrequency");
-    updateStartTime = time(NULL);
-    isRunning = 1;
+
     char *portname = (char *) ctx;
-    unsigned long size = 6 + strchr(portname, '\0') - ((char *) portname);
-    char cmd[size];
-    strcpy(cmd, portname);
+    char buffer[255];
+    unsigned long last = strchr(portname, '\0') - portname;
+    unsigned long nbyte = 1 + last;
+    char filename[nbyte];
 
-    OUTPUT_DEBUG_STDERR(stderr, "%s size: %lu", cmd, size);
+    strcpy(filename, portname);
+    filename[last] = '\0';
 
-    fd = popen(cmd, "r");
-    if (fd == NULL) {
-        exit(-1);
-    }
+    OUTPUT_DEBUG_STDERR(stderr, "FILENAME: %s", filename);
 
-    int ret;
+    FILE *fd = fopen(filename, "r");
+    int bufSize = 0;
+    int i;
+    char ret;
+    char *token;
+    char frequency[8];
+    double squelch = -1.0;
+    double avgDb = 0.0;
+ 
+    while (!(feof(fd))) {
+        if ((ret = fgetc(fd)) != '\n') {
+            buffer[bufSize++] = ret;
+        } else {
+            if (bufSize >= 255) {
+                continue;
+            }
+            struct timespec tstart={0,0};
+            clock_gettime(CLOCK_MONOTONIC, &tstart);
 
-    do {
-        struct updateArgs *args = malloc(sizeof(struct updateArgs));
-
-        struct tm timeinfo;
-        int year = 0;
-        int month = 0;
-        int mantissa = 0;
-        int characteristic = 0;
-        int tzHours = 0;
-        int tzMin = 0;
-
-        ret = fscanf(fd, "%d-%d-%dT%d:%d:%d+%d:%d;%d.%d\n",
-                     &year,
-                     &month,
-                     &timeinfo.tm_mday,
-                     &timeinfo.tm_hour,
-                     &timeinfo.tm_min,
-                     &timeinfo.tm_sec,
-                     &tzHours,
-                     &tzMin,
-                     &characteristic,
-                     &mantissa);
-        OUTPUT_DEBUG_STDERR(stderr, "vars set: %d\n", ret);
-
-        if (ret == 10) {
-            time_t loopTime = mktime(&timeinfo);
-            OUTPUT_DEBUG_STDERR(stderr, "DELTA TIME: %ld", loopTime - updateStartTime);
-
-            timeinfo.tm_year = year - 1900;
-            timeinfo.tm_mon = month - 1;
-            timeinfo.tm_isdst = 0;
+            buffer[bufSize] = '\0';
+            bufSize = 0;
             
-            args->timeinfo = timeinfo;
-            
-            char frequency[8];
-            sprintf(frequency, "%d.%d", characteristic, mantissa);
-
-            OUTPUT_DEBUG_STDERR(stderr, "Size of string: %ld\n", 1 + strchr(frequency, '\0') - frequency);
-            //unsigned long nbyte = 8;
-
-            unsigned long last = strchr(frequency, '\0') - frequency;
-            unsigned long nbyte = 1 + last;
-            strcpy(args->frequency, frequency);
-            args->frequency[last] = '\0';
-            args->nbyte = nbyte;
-            OUTPUT_DEBUG_STDERR(stderr, "FREQUENCY: %s", args->frequency);
-            
-            writeFrequencyPing(args->frequency, nbyte);
-
-            time_t idx = (loopTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
-            struct notifyArgs *nargs = malloc(sizeof(struct notifyArgs));
-
-            nargs->idx = idx;
-            nargs->args = args;
-            nargs->pid = 0;
-            pthread_create(&nargs->pid, NULL, notifyInsertThread, nargs);
-            pthread_detach(nargs->pid);
+            parseLineData(frequency, &avgDb, &squelch, buffer);
+            if (avgDb >= squelch) {
+                fprintf(stderr, "%f :: Squelch threshold broken by %s MHz\n", 
+                    (double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec, frequency);
+            }
         }
-    } while (isRunning && ret != EOF);
+    }
+    fclose(fd);
+
 
     return NULL;
 }

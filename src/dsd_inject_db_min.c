@@ -17,22 +17,50 @@
 //
 // Created by Patrick Eads on 1/11/23.
 //
+#define _GNU_SOURCE
 
+#include <dlfcn.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <string.h>
+#include <pthread.h>
+#include <semaphore.h>
+
+#if defined(__USE_XOPEN_EXTENDED) || defined(__USE_MISC)
+#undef __USE_MISC
+#undef __USE_XOPEN_EXTENDED
+#endif
+
+#include <signal.h>
 #include "utils.h"
 
-extern time_t updateStartTime;
-extern FILE *fd;
+extern sem_t sem;
+extern int isRunning;
 
-const char *db_pass;
-const char *db_host;
-const char *db_user;
-const char *schema;
+extern const char *db_pass;
+extern const char *db_host;
+extern const char *db_user;
+extern const char *schema;
 
-extern void *insertDataThread(void *ctx);
 extern void *startUpdatingFrequency(void *ctx);
-extern void onExit(void);
-extern ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset);
+extern void writeInsertToDatabase(const void *buf, size_t nbyte);
+extern void initializeEnv();
 
+static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
+
+void onExit(void) {
+    int status;
+    isRunning = 0;
+
+    if ((status = sem_close(&sem)) != 0) {
+        fprintf(stderr, "unable to unlink semaphore. status: %s\n", strerror(status));
+    } else {
+        fprintf(stderr, "%s", "semaphore destroyed\n");
+    }
+
+    next_write = NULL;
+}
 void onSignal(int sig) {
 
     fprintf(stderr, "\n\nCaught Signal: %s\n", strsignal(sig));
@@ -78,34 +106,7 @@ void initializeSignalHandlers() {
     free(sigHandler);
 }
 
-char *getEnvVarOrDefault(char *name, char *def) {
-
-    char *result = getenv(name);
-
-    if (result) {
-        return result;
-    }
-    return def;
-}
-
-void initializeEnv() {
-    updateStartTime = time(NULL);
-
-    fprintf(stderr, "Semaphore resources: %d", SEM_RESOURCES);
-
-    db_pass = getenv("DB_PASS");
-    if (db_pass) {
-        db_host = getEnvVarOrDefault("DB_HOST", "127.0.0.1");
-        db_user = getEnvVarOrDefault("DB_USER", "root");
-        schema = getEnvVarOrDefault("SCHEMA", "scanner");
-    } else {
-        fprintf(stderr, "%s", "No database user password defined.");
-        exit(-1);
-    }
-}
-
 ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
-
     if (NULL == next_write) {
         initializeEnv();
         initializeSignalHandlers();
@@ -122,22 +123,13 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
             exit(-1);
         }
 
-        pthread_t upid = 0;
-        const char *fileDes = "$PWD/dsd_inject/read_rtl_fm_loop.sh"; //"$PWD/db-out"
-        pthread_create(&upid, NULL, startUpdatingFrequency, (void *) fileDes);
-        pthread_detach(upid);
+        //pthread_t upid = 0;
+        //const char fileDes[] = "/home/peads/fm-err-out";
+        //pthread_create(&upid, NULL, startUpdatingFrequency, (void *) fileDes);
+        //pthread_detach(upid);
     }
 
-    pthread_t pid = 0;
-    struct insertArgs *args = malloc(sizeof(struct insertArgs));
-    args->buf = malloc(nbyte * sizeof(char));
-    args->nbyte = nbyte;
-
-    memcpy(args->buf, buf, nbyte);
-
-    pthread_create(&pid, NULL, insertDataThread, (void *) args);
-    pthread_detach(pid);
-    args->pid = pid;
+    writeInsertToDatabase(buf, nbyte);
 
     return next_write(fildes, buf, nbyte, offset);
 }
