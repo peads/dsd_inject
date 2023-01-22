@@ -105,7 +105,6 @@ void writeFrequencyPing(char *frequency, unsigned long nbyte) {
     mysql_real_connect(conn, db_host, db_user, db_pass, schema, 0, NULL, 0);
 
     memset(bind, 0, sizeof(bind));
-    //memset(&bind[0], 0, sizeof(MYSQL_BIND));
 
     unsigned long length = LENGTH_OF(INSERT_FREQUENCY);
     OUTPUT_DEBUG_STDERR(stderr, "Insert length of string: %u", length);
@@ -255,13 +254,6 @@ void writeInsertToDatabase(const void *buf, size_t nbyte) {
     mysql_close(conn);
 
     free(dateDecoded);
-
-    time_t idx = (insertTime - updateStartTime) % SIX_DAYS_IN_SECONDS;
-    //pthread_t pid = 0;
-    //pthread_create(&pid, NULL, waitForUpdate, &idx);
-    //pthread_detach(pid);
-    //pidHash[idx] = pid;
-    //OUTPUT_DEBUG_STDERR(stderr, "writeInsertToDatabase :: pid: %lu @ INDEX: %lu", pidHash[idx], idx);
 }
 
 void sshiftLeft(char *s, int n)
@@ -328,6 +320,14 @@ void parseLineData(char *frequency, double *avgDb, double *squelch, char *buffer
     }
 }
 
+void *runUpdateThread(void *ctx) {
+    struct updateArgs *args = (struct updateArgs *) ctx;
+
+    writeUpdate(args->frequency, args->t, args->nbyte);
+
+    pthread_exit(&args->pid);
+}
+
 void *startUpdatingFrequency(void *ctx) {
 
     if (isRunning) {
@@ -369,7 +369,14 @@ void *startUpdatingFrequency(void *ctx) {
             parseLineData(frequency, &avgDb, &squelch, buffer);
             if (avgDb >= squelch) {
                 writeFrequencyPing(frequency, 8);
-                writeUpdate(frequency, t, 8);
+
+                struct updateArgs *args = malloc(sizeof(struct updateArgs));
+                args->frequency = frequency;
+                args->t = t;
+                args->nbyte = 8;
+                args->pid = 0;
+                pthread_create(&args->pid, NULL, runUpdateThread, args);
+                pthread_detach(args->pid);
             }
         }
     }

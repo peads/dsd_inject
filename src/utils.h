@@ -52,8 +52,8 @@ struct insertArgs {
 };
 
 struct updateArgs {
-    char frequency[8];
-    struct tm timeinfo;
+    char *frequency;
+    time_t t;
     unsigned long nbyte;
     pthread_t pid;
 };
