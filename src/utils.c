@@ -199,7 +199,6 @@ void writeUpdate(char *frequency, time_t t, unsigned long nbyte) {
 }
 
 void writeInsertToDatabase(const void *buf, size_t nbyte) {
-    time_t insertTime = time(NULL);
 
     int status = 0;
  
@@ -207,38 +206,23 @@ void writeInsertToDatabase(const void *buf, size_t nbyte) {
         exit(-1);
     }
 
-    MYSQL_BIND bind[2];
+    MYSQL_BIND bind[1];
     MYSQL *conn = mysql_init(NULL);
     mysql_real_connect(conn, db_host, db_user, db_pass, schema, 0, NULL, 0);
 
-    MYSQL_TIME *dateDecoded = malloc(sizeof(MYSQL_TIME));
-    
-    struct tm *timeinfo;
-    timeinfo = localtime(&insertTime);
-    generateMySqlTimeFromTm(dateDecoded, timeinfo);
-
     memset(bind, 0, sizeof(bind));
 
-    bind[0].buffer_type = MYSQL_TYPE_DATETIME;
-    bind[0].buffer = dateDecoded;
-    bind[0].length = 0;
+    bind[0].buffer_type = MYSQL_TYPE_BLOB;
+    bind[0].buffer = (char *) &buf;
+    bind[0].buffer_length = nbyte;
+    bind[0].length = &nbyte;
     bind[0].is_null = 0;
-
-    bind[1].buffer_type = MYSQL_TYPE_BLOB;
-    bind[1].buffer = (char *) &buf;
-    bind[1].buffer_length = nbyte;
-    bind[1].length = &nbyte;
-    bind[1].is_null = 0;
-
-    char buffer[26];
-    strftime(buffer, 26, "%Y-%m-%dT%H:%M:%S:%z\n", timeinfo);
 
     unsigned long length = LENGTH_OF(INSERT_DATA) ;
     OUTPUT_DEBUG_STDERR(stderr, "Length of string: %lu", length);
-    OUTPUT_DEBUG_STDERR(stderr, INSERT_INFO "\n", buffer, nbyte);
     
     MYSQL_STMT *stmt = mysql_stmt_init(conn); 
-    mysql_stmt_prepare(stmt, INSERT_DATA, length);    
+    mysql_stmt_prepare(stmt, INSERT_DATA, length);
 
     status = mysql_stmt_bind_param(stmt, bind);
     if (status != 0) {
@@ -251,8 +235,6 @@ void writeInsertToDatabase(const void *buf, size_t nbyte) {
 
     mysql_stmt_close(stmt);
     mysql_close(conn);
-
-    free(dateDecoded);
 }
 
 void sshiftLeft(char *s, int n)
@@ -267,7 +249,7 @@ void sshiftLeft(char *s, int n)
    *s = '\0';
 }
 
-double parseDbFloat(char *s) {
+double parseRmsFloat(char *s) {
     unsigned long nbyte = 1 + strchr(strchr(s, ' ') + 1, ' ') - s;
     s[nbyte - 1] = '\0';
     double result = atof(s);
@@ -275,7 +257,7 @@ double parseDbFloat(char *s) {
     return result;
 }
 
-void *parseFrequency(char *frequency, char *token) {
+void parseFrequency(char *frequency, char *token) {
     char characteristic[7];
     char mantissa[7];
 
@@ -289,11 +271,9 @@ void *parseFrequency(char *frequency, char *token) {
 
     sshiftLeft(mantissa, 3);
     sprintf(frequency, "%s.%s", characteristic, mantissa);
-    
-    return frequency;
 }
 
-void parseLineData(char *frequency, double *avgDb, double *squelch, char *buffer) {
+void parseLineData(char *frequency, double *avgRms, double *squelch, char *buffer) {
     int i = 0;
     char *token = strtok(buffer, ",");
 
@@ -303,11 +283,11 @@ void parseLineData(char *frequency, double *avgDb, double *squelch, char *buffer
                 parseFrequency(frequency, token);
                 break;
             case 1:
-                *avgDb = parseDbFloat(token);
+                *avgRms = parseRmsFloat(token);
                 break;
             case 4:
                 if (*squelch < 0.0) {
-                    *squelch = parseDbFloat(token);
+                    *squelch = parseRmsFloat(token);
                 }
                 break;
             case 2:
@@ -329,7 +309,15 @@ void *runUpdateThread(void *ctx) {
     pthread_exit(&args->pid);
 }
 
-void *startUpdatingFrequency(void *ctx) {
+void *runPingThread(void *ctx) {
+    char *frequency = (char *) ctx;
+
+    writeFrequencyPing(frequency, 8);
+
+    return NULL; 
+}
+
+void *runFrequencyUpdatingThread(void *ctx) {
 
     if (isRunning) {
         return NULL;
@@ -351,7 +339,7 @@ void *startUpdatingFrequency(void *ctx) {
     char ret;
     char frequency[8];
     double squelch = -1.0;
-    double avgDb = 0.0;
+    double avgRms = 0.0;
  
     while (!(feof(fd))) {
         if ((ret = fgetc(fd)) != '\n') {
@@ -365,9 +353,12 @@ void *startUpdatingFrequency(void *ctx) {
             buffer[bufSize] = '\0';
             bufSize = 0;
             
-            parseLineData(frequency, &avgDb, &squelch, buffer);
-            if (avgDb >= squelch) {
-                writeFrequencyPing(frequency, 8);
+            parseLineData(frequency, &avgRms, &squelch, buffer);
+            if (avgRms >= squelch) {
+                pthread_t pid = 0;
+                pthread_create(&pid, NULL, runPingThread, frequency);
+                pthread_detach(pid);
+
 
                 struct updateArgs *args = malloc(sizeof(struct updateArgs));
                 args->frequency = frequency;
@@ -380,7 +371,6 @@ void *startUpdatingFrequency(void *ctx) {
         }
     }
     fclose(fd);
-
 
     return NULL;
 }
