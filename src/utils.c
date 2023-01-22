@@ -24,6 +24,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <errno.h>
+#include <semaphore.h>
 #include <signal.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -43,6 +44,7 @@ void *notifyInsertThread(void *ctx);
 
 time_t updateStartTime;
 int isRunning = 0;
+sem_t sem;
 
 char *getEnvVarOrDefault(char *name, char *def) {
 
@@ -58,6 +60,7 @@ void initializeEnv() {
     updateStartTime = time(NULL);
 
     fprintf(stderr, "Semaphore resources: %d", SEM_RESOURCES);
+    sem_init(&sem, 0, SEM_RESOURCES);
 
     db_pass = getenv("DB_PASS");
     if (db_pass) {
@@ -317,10 +320,12 @@ void parseLineData(char *frequency, double *avgDb, double *squelch, char *buffer
 }
 
 void *runUpdateThread(void *ctx) {
+    sem_wait(&sem);
     struct updateArgs *args = (struct updateArgs *) ctx;
 
     writeUpdate(args->frequency, args->t, args->nbyte);
 
+    sem_post(&sem);
     pthread_exit(&args->pid);
 }
 
