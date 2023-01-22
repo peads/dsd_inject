@@ -434,6 +434,7 @@ void *startUpdatingFrequency(void *ctx) {
             
             parseLineData(frequency, &avgDb, &squelch, buffer);
             if (avgDb >= squelch) {
+                writeFrequencyPing(frequency, 8);
                 fprintf(stderr, "%f :: Squelch threshold broken by %s MHz\n", 
                     (double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec, frequency);
             }
