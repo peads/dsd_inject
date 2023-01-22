@@ -27,12 +27,12 @@ add_definitions(-fPIC)
 add_definitions(-pthread)
 ADD_DEFINITIONS(-Werror)
 ADD_DEFINITIONS(-Wno-deprecated-declarations)
-add_definitions(-Wno-unused-but-set-variable)
 add_definitions(-Wno-unused-variable)
 ADD_DEFINITIONS(-Wall)
 ADD_DEFINITIONS(-Wextra)
 
 if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    add_definitions(-Wno-unused-but-set-variable)
     add_definitions(-lmariadb)
     add_definitions(-lrt)
     add_definitions(-fno-stack-protector -fno-stack-clash-protection)
@@ -40,7 +40,9 @@ if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
     add_definitions(-fvisibility=hidden)
     include_directories(/usr/include/mariadb /usr/include/mariadb/mysql)
 elseif(CMAKE_C_COMPILER_ID STREQUAL "AppleClang")
-    add_definitions(-lmysqlclient)
+    add_definitions(-Wno-unused-command-line-argument)
+    add_definitions(-L/usr/local/Cellar/mysql/8.0.31/lib -lmysqlclient -lz -L/usr/local/lib -lzstd
+            -L/usr/local/opt/openssl@1.1/lib -lssl -lcrypto -lresolv)
     include_directories(/usr/local/Cellar/mysql/8.0.31/include/mysql)
 #elseif(MSVC14 OR MSVC14)
 #    #pthread-w32 issue, timespec is now part of time.h
@@ -50,9 +52,6 @@ endif()
 add_library(dsd_inject SHARED
         src/utils.h
         src/utils.c
-        src/inject.h
-        src/dsd_inject_db_min.c)
-add_executable(correlate_frequencies
-        src/utils.h
-        src/utils.c
-        src/correlate_frequencies.c)
+        src/correlate_frequencies.c
+        src/dsd_inject_db_min.c
+)

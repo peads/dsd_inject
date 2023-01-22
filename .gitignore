@@ -7,3 +7,9 @@ build/
 correlate_frequencies
 *orig
 .DS_Store
+*_BACKUP_*
+*_BASE_*
+*_LOCAL_*
+*_REMOTE_*
+*.swp*
+*.old*

@@ -13,12 +13,10 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
-if [[ $OSTYPE == 'darwin'* ]]; then
-  OPT_FLAGS=''
-  O_FILE='inject.dylib'
-elif [[ $OSTYPE == 'linux'* ]]; then
-  OPT_FLAGS='-lrt'
-  O_FILE='inject.so'
-fi
 
-gcc -Werror -Wno-deprecated-declarations -Wno-unused-variable -Wall -Wextra -O2 -m64 -fPIC -shared -ldl $(mysql_config --cflags) $PWD/src/utils.c $PWD/src/dsd_inject_db_min.c -o $O_FILE $(mysql_config --libs) -lz -fno-stack-protector -fno-stack-clash-protection -pthread $OPT_FLAGS
+gcc -Werror -Wno-deprecated-declarations -Wno-unused-variable -Wall -Wextra -O2 \
+  -m64 -fPIC -fno-stack-protector -fno-stack-clash-protection -shared \
+  -ldl $(mysql_config --cflags) $PWD/src/utils.c \
+  $PWD/src/correlate_frequencies.c $PWD/src/dsd_inject_db_min.c \
+  -o inject.so $(sed -e "s/-L.\+\/ //g" <<< $(mysql_config --libs)) \
+  -lz -pthread $([[ $OSTYPE == 'linux'* ]] && echo "-lrt") -DTRACE

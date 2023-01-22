@@ -17,89 +17,91 @@
 //
 // Created by Patrick Eads on 1/11/23.
 //
-#define SEM_RESOURCES 128
-#include "inject.h"
+#define _GNU_SOURCE
 
-#define INSERT_STATEMENT    "INSERT INTO imbedata (date_recorded, data) VALUES (?, ?);"
-#define INSERT_ERROR        "INSERT INTO imbedata (date_recorded, data) " \
-                            "VALUES (%zu, (data of size: %zu));"
+#include <dlfcn.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <string.h>
+#include <pthread.h>
+
+#if defined(__USE_XOPEN_EXTENDED) || defined(__USE_MISC)
+#undef __USE_MISC
+#undef __USE_XOPEN_EXTENDED
+#endif
+
+#include <signal.h>
+#include "utils.h"
+
+extern int isRunning;
+
 extern const char *db_pass;
 extern const char *db_host;
 extern const char *db_user;
 extern const char *schema;
 
-void writeToDatabase(void *buf, size_t nbyte) {
+extern void *startUpdatingFrequency(void *ctx);
+extern void writeInsertToDatabase(const void *buf, size_t nbyte);
+extern void initializeEnv();
 
-    const time_t startTime = time(NULL);
-    int status;
-
-    MYSQL_BIND bind[2];
-    MYSQL_STMT *stmt;
-    MYSQL *conn;
-    MYSQL_TIME *dateDecoded;
-
-    dateDecoded = generateMySqlTime(&startTime);
-
-    conn = initializeMySqlConnection(bind);
-
-    stmt = generateMySqlStatment(INSERT_STATEMENT, conn, &status, 57);
-    if (status != 0) {
-        doExit(conn);
-    }
-
-    bind[0].buffer_type = MYSQL_TYPE_DATETIME;
-    bind[0].buffer = (char *) dateDecoded;
-    bind[0].length = 0;
-    bind[0].is_null = 0;
-
-    bind[1].buffer_type = MYSQL_TYPE_BLOB;
-    bind[1].buffer = (char *) &buf;
-    bind[1].buffer_length = nbyte;
-    bind[1].length = &nbyte;
-    bind[1].is_null = 0;
-
-    status = mysql_stmt_bind_param(stmt, bind);
-    if (status != 0) {
-        doExit(conn);
-    }
-    status = mysql_stmt_execute(stmt);
-    if (status != 0) {
-        doExit(conn);
-    }
-
-    mysql_stmt_close(stmt);
-    mysql_close(conn);
-
-    free((void *) dateDecoded);
-}
-
-void *run(void *ctx) {
-
-    struct thread_args *args = (struct thread_args *) ctx;
-
-    sem_wait(&sem);
-
-    writeToDatabase(args->buf, args->nbyte);
-
-    sem_post(&sem);
-
-    free(args->buf);
-    free(ctx);
-
-    pthread_exit(&args->pid);
-}
+static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
 
 void onExit(void) {
+    isRunning = 0;
+
     next_write = NULL;
-    onExitSuper();
+}
+void onSignal(int sig) {
+
+    fprintf(stderr, "\n\nCaught Signal: %s\n", strsignal(sig));
+    if (SIGUSR1 != sig && SIGUSR2 != sig) {
+        exit(-1);
+    }
+}
+
+void initializeSignalHandlers() {
+
+    fprintf(stderr, "%s", "initializing signal handlers");
+
+    struct sigaction *sigInfo = malloc(sizeof(*sigInfo));
+    struct sigaction *sigHandler = malloc(sizeof(*sigHandler));
+
+    sigHandler->sa_handler = onSignal;
+    sigemptyset(&(sigHandler->sa_mask));
+    sigHandler->sa_flags = 0;
+
+    int sigs[] = {SIGABRT, SIGALRM, SIGFPE, SIGHUP, SIGILL,
+                  SIGINT, SIGPIPE, SIGQUIT, SIGSEGV, SIGTERM,
+                  SIGUSR1, SIGUSR2};
+
+    int i = 0;
+    for (; i < (int) LENGTH_OF(sigs); ++i) {
+        const int sig = sigs[i];
+        const char *name = strsignal(sig);
+
+        fprintf(stderr, "Initializing signal handler for signal: %s\n", name);
+
+        sigaction(sig, NULL, sigInfo);
+        const int res = sigaction(sig, sigHandler, sigInfo);
+
+        if (res == -1) {
+            fprintf(stderr, "\n\nWARNING: Unable to initialize handler for %s\n\n", name);
+            exit(-1);
+        } else {
+            fprintf(stderr, "Successfully initialized signal handler for signal: %s\n", name);
+        }
+    }
+
+    free(sigInfo);
+    free(sigHandler);
 }
 
 ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
-
     if (NULL == next_write) {
         initializeEnv();
         initializeSignalHandlers();
-
+ 
         fprintf(stderr, "%s", "wrapping write\n");
         next_write = dlsym(RTLD_NEXT, "write");
         const char *msg = dlerror();
@@ -110,22 +112,16 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
         if (msg != NULL) {
             fprintf(stderr, "\nwrite: dlwrite failed: %s::Exiting\n", msg);
             exit(-1);
-        } else {
-            fprintf(stderr, "%s",
-                    "\nwrite: wrapping done\nwrapped with " INSERT_STATEMENT"\n");
         }
+
+        pthread_t upid = 0;
+        const char fileDes[] = "/home/peads/fm-err-out";
+        pthread_create(&upid, NULL, startUpdatingFrequency, (void *) fileDes);
+        pthread_detach(upid);
     }
 
-    pthread_t pid = 0;
-    struct thread_args *args = malloc(sizeof(struct thread_args));
-    args->buf = malloc(nbyte * sizeof(char));
-    args->nbyte = nbyte;
-    args->pid = pid;
-
-    memcpy((char *) args->buf, buf, nbyte);
-
-    pthread_create(&args->pid, NULL, run, (void *) args);
-    pthread_detach(pid);
+    writeInsertToDatabase(buf, nbyte);
 
     return next_write(fildes, buf, nbyte, offset);
 }
+
