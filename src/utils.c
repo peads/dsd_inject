@@ -327,6 +327,14 @@ void *runUpdateThread(void *ctx) {
     pthread_exit(&args->pid);
 }
 
+void *runPingThread(void *ctx) {
+    char *frequency = (char *) ctx;
+
+    writeFrequencyPing(frequency, 8);
+
+    return NULL; 
+}
+
 void *runFrequencyUpdatingThread(void *ctx) {
 
     if (isRunning) {
@@ -365,7 +373,10 @@ void *runFrequencyUpdatingThread(void *ctx) {
             
             parseLineData(frequency, &avgRms, &squelch, buffer);
             if (avgRms >= squelch) {
-                writeFrequencyPing(frequency, 8);
+                pthread_t pid = 0;
+                pthread_create(&pid, NULL, runPingThread, frequency);
+                pthread_detach(pid);
+
 
                 struct updateArgs *args = malloc(sizeof(struct updateArgs));
                 args->frequency = frequency;
