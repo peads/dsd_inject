@@ -42,8 +42,6 @@ void writeUpdate(char *frequency, time_t t, unsigned long nbyte);
 void writeFrequencyPing(char *frequency, unsigned long nbyte);
 void *notifyInsertThread(void *ctx);
 
-static struct updateArgs *updateHash[SIX_DAYS_IN_SECONDS] = {NULL};
-static pthread_t pidHash[SIX_DAYS_IN_SECONDS] = {0};
 time_t updateStartTime;
 int isRunning = 0;
 sem_t sem;
@@ -135,7 +133,7 @@ void writeFrequencyPing(char *frequency, unsigned long nbyte) {
 }
 
 void writeUpdate(char *frequency, time_t t, unsigned long nbyte) {
-    OUTPUT_DEBUG_STDERR(stderr, "%s", "UPDATING FREQUENCY");
+    OUTPUT_INFO_STDERR(stderr, "%s", "UPDATING FREQUENCY");
     
     int status;
     MYSQL_BIND bind[3];
@@ -347,9 +345,7 @@ void *startUpdatingFrequency(void *ctx) {
 
     FILE *fd = fopen(filename, "r");
     int bufSize = 0;
-    int i;
     char ret;
-    char *token;
     char frequency[8];
     double squelch = -1.0;
     double avgDb = 0.0;
