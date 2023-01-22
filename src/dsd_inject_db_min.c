@@ -123,13 +123,14 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
             exit(-1);
         }
 
-        //pthread_t upid = 0;
-        //const char fileDes[] = "/home/peads/fm-err-out";
-        //pthread_create(&upid, NULL, startUpdatingFrequency, (void *) fileDes);
-        //pthread_detach(upid);
+        pthread_t upid = 0;
+        const char fileDes[] = "/home/peads/fm-err-out";
+        pthread_create(&upid, NULL, startUpdatingFrequency, (void *) fileDes);
+        pthread_detach(upid);
     }
 
     writeInsertToDatabase(buf, nbyte);
 
     return next_write(fildes, buf, nbyte, offset);
 }
+
