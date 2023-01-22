@@ -267,7 +267,7 @@ void sshiftLeft(char *s, int n)
    *s = '\0';
 }
 
-double parseDbFloat(char *s) {
+double parseRmsFloat(char *s) {
     unsigned long nbyte = 1 + strchr(strchr(s, ' ') + 1, ' ') - s;
     s[nbyte - 1] = '\0';
     double result = atof(s);
@@ -275,7 +275,7 @@ double parseDbFloat(char *s) {
     return result;
 }
 
-void *parseFrequency(char *frequency, char *token) {
+void parseFrequency(char *frequency, char *token) {
     char characteristic[7];
     char mantissa[7];
 
@@ -289,11 +289,9 @@ void *parseFrequency(char *frequency, char *token) {
 
     sshiftLeft(mantissa, 3);
     sprintf(frequency, "%s.%s", characteristic, mantissa);
-    
-    return frequency;
 }
 
-void parseLineData(char *frequency, double *avgDb, double *squelch, char *buffer) {
+void parseLineData(char *frequency, double *avgRms, double *squelch, char *buffer) {
     int i = 0;
     char *token = strtok(buffer, ",");
 
@@ -303,11 +301,11 @@ void parseLineData(char *frequency, double *avgDb, double *squelch, char *buffer
                 parseFrequency(frequency, token);
                 break;
             case 1:
-                *avgDb = parseDbFloat(token);
+                *avgRms = parseRmsFloat(token);
                 break;
             case 4:
                 if (*squelch < 0.0) {
-                    *squelch = parseDbFloat(token);
+                    *squelch = parseRmsFloat(token);
                 }
                 break;
             case 2:
@@ -329,7 +327,7 @@ void *runUpdateThread(void *ctx) {
     pthread_exit(&args->pid);
 }
 
-void *startUpdatingFrequency(void *ctx) {
+void *runFrequencyUpdatingThread(void *ctx) {
 
     if (isRunning) {
         return NULL;
@@ -351,7 +349,7 @@ void *startUpdatingFrequency(void *ctx) {
     char ret;
     char frequency[8];
     double squelch = -1.0;
-    double avgDb = 0.0;
+    double avgRms = 0.0;
  
     while (!(feof(fd))) {
         if ((ret = fgetc(fd)) != '\n') {
@@ -365,8 +363,8 @@ void *startUpdatingFrequency(void *ctx) {
             buffer[bufSize] = '\0';
             bufSize = 0;
             
-            parseLineData(frequency, &avgDb, &squelch, buffer);
-            if (avgDb >= squelch) {
+            parseLineData(frequency, &avgRms, &squelch, buffer);
+            if (avgRms >= squelch) {
                 writeFrequencyPing(frequency, 8);
 
                 struct updateArgs *args = malloc(sizeof(struct updateArgs));
@@ -381,7 +379,25 @@ void *startUpdatingFrequency(void *ctx) {
     }
     fclose(fd);
 
+    return NULL;
+}
 
+/* THIS IS A HUGE CLUDGE, AND I HATE IT */
+void *runCheckAndFixZeroDatesThread(void *) {
+    //while (isRunning) {
+        MYSQL *conn = mysql_init(NULL);
+        mysql_real_connect(conn, db_host, db_user, db_pass, schema, 0, NULL, 0);
+
+        mysql_query(conn, UPDATE_ZERO_ZERO_DATES); 
+        fprintf(stderr, "Zero zero rows updated: %llu\n", mysql_affected_rows(conn));
+
+        mysql_query(conn, UPDATE_ZERO_DATES);
+        fprintf(stderr, "Zero rows updated: %llu\n", mysql_affected_rows(conn));
+
+        mysql_close(conn);
+
+        sleep(1800);
+    //}
     return NULL;
 }
 

@@ -44,6 +44,8 @@
 #define INSERT_DATA "INSERT INTO imbedata (date_recorded, data) VALUES (?, ?);"
 #define INSERT_INFO "INSERT INTO imbedata (date_recorded, data) VALUES (%s, (data of size: %zu));"
 #define DATE_STRING "%04d-%02d-%02d %02d:%02d:%02d"
+#define UPDATE_ZERO_ZERO_DATES "update imbedata imbedata set `date_recorded` = `date_modified`, `date_decoded` = `date_modified` where `date_recorded` = 0 and `date_decoded` = 0;"
+#define UPDATE_ZERO_DATES "update imbedata imbedata set `date_recorded` = `date_modified`  where `date_recorded` = 0 and `date_decoded` is null;"
 
 struct insertArgs {
     void *buf;

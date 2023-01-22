@@ -43,9 +43,10 @@ extern const char *db_host;
 extern const char *db_user;
 extern const char *schema;
 
-extern void *startUpdatingFrequency(void *ctx);
+extern void *runFrequencyUpdatingThread(void *ctx);
 extern void writeInsertToDatabase(const void *buf, size_t nbyte);
 extern void initializeEnv();
+extern void *runCheckAndFixZeroDatesThread(void *);
 
 static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
 
@@ -125,8 +126,12 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
 
         pthread_t upid = 0;
         const char fileDes[] = "/home/peads/fm-err-out";
-        pthread_create(&upid, NULL, startUpdatingFrequency, (void *) fileDes);
+        pthread_create(&upid, NULL, runFrequencyUpdatingThread, (void *) fileDes);
         pthread_detach(upid);
+
+        pthread_t fpid = 0;
+        pthread_create(&fpid, NULL, runCheckAndFixZeroDatesThread, NULL);
+        pthread_detach(fpid);
     }
 
     writeInsertToDatabase(buf, nbyte);
