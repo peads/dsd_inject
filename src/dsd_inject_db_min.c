@@ -128,10 +128,6 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
         const char fileDes[] = "/home/peads/fm-err-out";
         pthread_create(&upid, NULL, runFrequencyUpdatingThread, (void *) fileDes);
         pthread_detach(upid);
-
-        pthread_t fpid = 0;
-        pthread_create(&fpid, NULL, runCheckAndFixZeroDatesThread, NULL);
-        pthread_detach(fpid);
     }
 
     writeInsertToDatabase(buf, nbyte);

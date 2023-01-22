@@ -39,13 +39,13 @@
 #define SIX_DAYS_IN_SECONDS 518400
 #define INSERT_FREQUENCY_INFO "INSERT INTO frequencydata (frequency) VALUES (%s);"
 #define INSERT_FREQUENCY "insert into frequencydata (`frequency`) values (?) on duplicate key update `date_modified`=NOW();"
+
 #define UPDATE_FREQUENCY "UPDATE LOW_PRIORITY imbedata SET `date_decoded`=?, `frequency`=? WHERE `date_recorded`=?;"
 #define UPDATE_FREQUENCY_INFO "UPDATE imbedata SET date_decoded=%s, frequency=%s WHERE date_recorded=%s;"
-#define INSERT_DATA "INSERT INTO imbedata (date_recorded, data) VALUES (?, ?);"
-#define INSERT_INFO "INSERT INTO imbedata (date_recorded, data) VALUES (%s, (data of size: %zu));"
+
+#define INSERT_DATA "INSERT INTO imbedata (data) VALUES (?);"
+
 #define DATE_STRING "%04d-%02d-%02d %02d:%02d:%02d"
-#define UPDATE_ZERO_ZERO_DATES "update LOW_PRIORITY imbedata imbedata set `date_recorded` = `date_modified`, `date_decoded` = `date_modified` where `date_recorded` = 0 and `date_decoded` = 0;"
-#define UPDATE_ZERO_DATES "update LOW_PRIORITY imbedata imbedata set `date_recorded` = `date_modified`  where `date_recorded` = 0 and `date_decoded` is null;"
 
 struct insertArgs {
     void *buf;

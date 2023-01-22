@@ -199,7 +199,6 @@ void writeUpdate(char *frequency, time_t t, unsigned long nbyte) {
 }
 
 void writeInsertToDatabase(const void *buf, size_t nbyte) {
-    time_t insertTime = time(NULL);
 
     int status = 0;
  
@@ -207,38 +206,23 @@ void writeInsertToDatabase(const void *buf, size_t nbyte) {
         exit(-1);
     }
 
-    MYSQL_BIND bind[2];
+    MYSQL_BIND bind[1];
     MYSQL *conn = mysql_init(NULL);
     mysql_real_connect(conn, db_host, db_user, db_pass, schema, 0, NULL, 0);
 
-    MYSQL_TIME *dateDecoded = malloc(sizeof(MYSQL_TIME));
-    
-    struct tm *timeinfo;
-    timeinfo = localtime(&insertTime);
-    generateMySqlTimeFromTm(dateDecoded, timeinfo);
-
     memset(bind, 0, sizeof(bind));
 
-    bind[0].buffer_type = MYSQL_TYPE_DATETIME;
-    bind[0].buffer = dateDecoded;
-    bind[0].length = 0;
+    bind[0].buffer_type = MYSQL_TYPE_BLOB;
+    bind[0].buffer = (char *) &buf;
+    bind[0].buffer_length = nbyte;
+    bind[0].length = &nbyte;
     bind[0].is_null = 0;
-
-    bind[1].buffer_type = MYSQL_TYPE_BLOB;
-    bind[1].buffer = (char *) &buf;
-    bind[1].buffer_length = nbyte;
-    bind[1].length = &nbyte;
-    bind[1].is_null = 0;
-
-    char buffer[26];
-    strftime(buffer, 26, "%Y-%m-%dT%H:%M:%S:%z\n", timeinfo);
 
     unsigned long length = LENGTH_OF(INSERT_DATA) ;
     OUTPUT_DEBUG_STDERR(stderr, "Length of string: %lu", length);
-    OUTPUT_DEBUG_STDERR(stderr, INSERT_INFO "\n", buffer, nbyte);
     
     MYSQL_STMT *stmt = mysql_stmt_init(conn); 
-    mysql_stmt_prepare(stmt, INSERT_DATA, length);    
+    mysql_stmt_prepare(stmt, INSERT_DATA, length);
 
     status = mysql_stmt_bind_param(stmt, bind);
     if (status != 0) {
@@ -251,8 +235,6 @@ void writeInsertToDatabase(const void *buf, size_t nbyte) {
 
     mysql_stmt_close(stmt);
     mysql_close(conn);
-
-    free(dateDecoded);
 }
 
 void sshiftLeft(char *s, int n)
@@ -390,25 +372,6 @@ void *runFrequencyUpdatingThread(void *ctx) {
     }
     fclose(fd);
 
-    return NULL;
-}
-
-/* THIS IS A HUGE CLUDGE, AND I HATE IT */
-void *runCheckAndFixZeroDatesThread(void *) {
-    //while (isRunning) {
-        MYSQL *conn = mysql_init(NULL);
-        mysql_real_connect(conn, db_host, db_user, db_pass, schema, 0, NULL, 0);
-
-        mysql_query(conn, UPDATE_ZERO_ZERO_DATES); 
-        fprintf(stderr, "Zero zero rows updated: %llu\n", mysql_affected_rows(conn));
-
-        mysql_query(conn, UPDATE_ZERO_DATES);
-        fprintf(stderr, "Zero rows updated: %llu\n", mysql_affected_rows(conn));
-
-        mysql_close(conn);
-
-        sleep(1800);
-    //}
     return NULL;
 }
 
