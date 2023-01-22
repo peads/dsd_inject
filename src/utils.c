@@ -38,7 +38,7 @@ const char *db_host;
 const char *db_user;
 const char *schema;
 
-void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte);
+void writeUpdate(char *frequency, time_t t, unsigned long nbyte);
 void writeFrequencyPing(char *frequency, unsigned long nbyte);
 void *notifyInsertThread(void *ctx);
 
@@ -135,7 +135,7 @@ void writeFrequencyPing(char *frequency, unsigned long nbyte) {
     mysql_close(conn);
 }
 
-void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
+void writeUpdate(char *frequency, time_t t, unsigned long nbyte) {
     OUTPUT_DEBUG_STDERR(stderr, "%s", "UPDATING FREQUENCY");
     
     int status;
@@ -145,6 +145,8 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
 
     MYSQL_TIME *dateDemod = malloc(sizeof(MYSQL_TIME));
 
+    struct tm *timeinfo;
+    timeinfo = localtime(&t);
     generateMySqlTimeFromTm(dateDemod, timeinfo);
     unsigned long length = LENGTH_OF(UPDATE_FREQUENCY);
     MYSQL_STMT *stmt = mysql_stmt_init(conn); 
@@ -196,73 +198,6 @@ void writeUpdate(char *frequency, struct tm *timeinfo, unsigned long nbyte) {
     mysql_close(conn);
     
     free(dateDemod);
-}
-
-void *notifyInsertThread(void *ctx) {
-   
-    struct notifyArgs *nargs = (struct notifyArgs *) ctx;
-    time_t idx = nargs->idx;
-    struct updateArgs *args = nargs->args;
-    int i = 0;
-
-    OUTPUT_INFO_STDERR(stderr, "notifyInsertThread :: DATE: %d-%d-%dT%d:%d:%d", 
-        args->timeinfo.tm_year + 1900, 
-        args->timeinfo.tm_mon + 1, 
-        args->timeinfo.tm_mday, 
-        args->timeinfo.tm_hour, 
-        args->timeinfo.tm_min, 
-        args->timeinfo.tm_sec);
-
-    pthread_t pid;
-
-    do {
-        pid = pidHash[idx];
-
-        OUTPUT_DEBUG_STDERR(stderr, "Searching pid: %lu at: %lu", pid, idx);
-        if (pid > 0 ) {
-
-            OUTPUT_DEBUG_STDERR(stderr, "%s", "SIGNALS AWAY"); 
-            updateHash[idx] = args;
-            OUTPUT_DEBUG_STDERR(stderr, "Struct added to hash at: %ld", idx);
-            //pthread_kill(pid, SIGUSR2);
-            return NULL;
-        }
-
-        sleep(1);
-        OUTPUT_DEBUG_STDERR(stderr, "notifyInsertThread :: Waited: %d seconds", i);
-    } while (pid <= 0 && i++ < 5);
-    
-    OUTPUT_INFO_STDERR(stderr, "%s", "notifyInsertThread :: Failed notification for update");
-    pthread_exit(&nargs->pid);
-}
-
-void *waitForUpdate(void *ctx) {
-    time_t idx = *((time_t *) ctx);
-    int i = 0; 
-    struct updateArgs *dbArgs;
-
-    do {
-        OUTPUT_DEBUG_STDERR(stderr, "waitForUpdate :: pid: %lu @ INDEX: %lu", pidHash[idx], idx);
-
-        dbArgs = updateHash[idx];
-
-        if (dbArgs != NULL) {
-            OUTPUT_DEBUG_STDERR(stderr, "waitForUpdate :: DATE: %d-%d-%dT%d:%d:%d", 
-                dbArgs->timeinfo.tm_year + 1900, 
-                dbArgs->timeinfo.tm_mon + 1, 
-                dbArgs->timeinfo.tm_mday, 
-                dbArgs->timeinfo.tm_hour, 
-                dbArgs->timeinfo.tm_min, 
-                dbArgs->timeinfo.tm_sec);
-            writeUpdate(dbArgs->frequency, &dbArgs->timeinfo, dbArgs->nbyte);
-            return NULL;
-        }
-        sleep(1);
-        OUTPUT_DEBUG_STDERR(stderr, "waitForUpdate :: Waited: %d seconds", i);
-    } while (NULL == dbArgs && i++ < 5);
-
-    OUTPUT_INFO_STDERR(stderr, "%s", "waitForUpdate :: Failed waiting to update");
-    return NULL;
 }
 
 void writeInsertToDatabase(const void *buf, size_t nbyte) {
@@ -426,8 +361,7 @@ void *startUpdatingFrequency(void *ctx) {
             if (bufSize >= 255) {
                 continue;
             }
-            struct timespec tstart={0,0};
-            clock_gettime(CLOCK_MONOTONIC, &tstart);
+            time_t t = time(NULL);
 
             buffer[bufSize] = '\0';
             bufSize = 0;
@@ -435,8 +369,7 @@ void *startUpdatingFrequency(void *ctx) {
             parseLineData(frequency, &avgDb, &squelch, buffer);
             if (avgDb >= squelch) {
                 writeFrequencyPing(frequency, 8);
-                fprintf(stderr, "%f :: Squelch threshold broken by %s MHz\n", 
-                    (double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec, frequency);
+                writeUpdate(frequency, t, 8);
             }
         }
     }
