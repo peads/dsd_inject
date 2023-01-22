@@ -24,7 +24,6 @@
 #include <string.h>
 #include <pthread.h>
 #include <errno.h>
-#include <semaphore.h>
 #include <signal.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -44,7 +43,6 @@ void *notifyInsertThread(void *ctx);
 
 time_t updateStartTime;
 int isRunning = 0;
-sem_t sem;
 
 char *getEnvVarOrDefault(char *name, char *def) {
 

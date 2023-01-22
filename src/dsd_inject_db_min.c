@@ -25,7 +25,6 @@
 #include <time.h>
 #include <string.h>
 #include <pthread.h>
-#include <semaphore.h>
 
 #if defined(__USE_XOPEN_EXTENDED) || defined(__USE_MISC)
 #undef __USE_MISC
@@ -35,7 +34,6 @@
 #include <signal.h>
 #include "utils.h"
 
-extern sem_t sem;
 extern int isRunning;
 
 extern const char *db_pass;
@@ -50,14 +48,7 @@ extern void initializeEnv();
 static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
 
 void onExit(void) {
-    int status;
     isRunning = 0;
-
-    if ((status = sem_close(&sem)) != 0) {
-        fprintf(stderr, "unable to unlink semaphore. status: %s\n", strerror(status));
-    } else {
-        fprintf(stderr, "%s", "semaphore destroyed\n");
-    }
 
     next_write = NULL;
 }
