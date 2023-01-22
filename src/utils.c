@@ -59,7 +59,7 @@ char *getEnvVarOrDefault(char *name, char *def) {
 void initializeEnv() {
     updateStartTime = time(NULL);
 
-    fprintf(stderr, "Semaphore resources: %d", SEM_RESOURCES);
+    OUTPUT_DEBUG_STDERR(stderr, "Semaphore resources: %d\n", SEM_RESOURCES);
     sem_init(&sem, 0, SEM_RESOURCES);
 
     db_pass = getenv("DB_PASS");
@@ -68,7 +68,7 @@ void initializeEnv() {
         db_user = getEnvVarOrDefault("DB_USER", "root");
         schema = getEnvVarOrDefault("SCHEMA", "scanner");
     } else {
-        fprintf(stderr, "%s", "No database user password defined.");
+        fprintf(stderr, "%s\n", "No database user password defined.");
         exit(-1);
     }
 }
@@ -313,12 +313,12 @@ void *runInsertThread(void *ctx) {
 }
 
 void *runUpdateThread(void *ctx) {
-    //sem_wait(&sem);
+    sem_wait(&sem);
     struct updateArgs *args = (struct updateArgs *) ctx;
 
     writeUpdate(args->frequency, args->t, args->nbyte);
 
-    //sem_post(&sem);
+    sem_post(&sem);
     pthread_exit(&args->pid);
 }
 

@@ -34,7 +34,7 @@
 
 #define MAX_BUF 255
 #define WHILE_READ "while read var; do echo  $var; done <"
-#define SEM_RESOURCES 6
+#define SEM_RESOURCES 12
 #define LENGTH_OF(arr) (sizeof(arr) / sizeof(*(arr)))
 #define SIX_DAYS_IN_SECONDS 518400
 #define INSERT_FREQUENCY_INFO "INSERT INTO frequencydata (frequency) VALUES (%s);"
