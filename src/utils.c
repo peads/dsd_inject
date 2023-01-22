@@ -345,7 +345,7 @@ double parseDbFloat(char *s) {
     unsigned long nbyte = 1 + strchr(strchr(s, ' ') + 1, ' ') - s;
     s[nbyte - 1] = '\0';
     double result = atof(s);
-    //fprintf(stderr, "%.2f\n", result);
+
     return result;
 }
 
@@ -363,7 +363,6 @@ void *parseFrequency(char *frequency, char *token) {
 
     sshiftLeft(mantissa, 3);
     sprintf(frequency, "%s.%s", characteristic, mantissa);
-    //fprintf(stderr, "%s MHz\n", frequency);
     
     return frequency;
 }
