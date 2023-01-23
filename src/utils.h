@@ -20,43 +20,41 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#ifndef TRACE
-#define OUTPUT_DEBUG_STDERR(file, msg, subs ...)  //
-#else
-#define OUTPUT_DEBUG_STDERR(file, msg, subs ...)  fprintf(file, msg "\n", subs)
-#endif
+#include <mysql.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <string.h>
+#include <pthread.h>
+#include <errno.h>
+#include <semaphore.h>
+#include <signal.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
-#if !(defined(DEBUG) || defined(TRACE))
-#define OUTPUT_INFO_STDERR(file, msg, subs ...)  //
-#else
-#define OUTPUT_INFO_STDERR(file, msg, subs ...)  fprintf(file, msg "\n", subs)
-#endif
-
-#define MAX_BUF 255
-#define WHILE_READ "while read var; do echo  $var; done <"
-#define SEM_RESOURCES 6 
-#define LENGTH_OF(arr) (sizeof(arr) / sizeof(*(arr)))
-#define SIX_DAYS_IN_SECONDS 518400
-#define INSERT_FREQUENCY_INFO "INSERT INTO frequencydata (frequency) VALUES (%s);"
-#define INSERT_FREQUENCY "insert into frequencydata (`frequency`) values (?) on duplicate key update `date_modified`=NOW();"
-
-#define UPDATE_FREQUENCY "UPDATE LOW_PRIORITY imbedata SET `date_decoded`=?, `frequency`=? WHERE `date_recorded`=?;"
-#define UPDATE_FREQUENCY_INFO "UPDATE imbedata SET date_decoded=%s, frequency=%s WHERE date_recorded=%s;"
-
-#define INSERT_DATA "INSERT INTO imbedata (data) VALUES (?);"
-
-#define MAX_PIDS 512
-#define DATE_STRING "%04d-%02d-%02d %02d:%02d:%02d"
-
-struct insertArgs {
-    void *buf;
-    size_t nbyte;
-};
+#include "global.h"
 
 struct updateArgs {
     char *frequency;
     time_t t;
     unsigned long nbyte;
 };
+
+const char *db_pass;
+const char *db_host;
+const char *db_user;
+const char *schema;
+
+static int isRunning = 0;
+static int pidCount = 0;
+static sem_t sem;
+static sem_t sem1;
+static pthread_t pids[MAX_PIDS];
+
+static void writeUpdate(char *frequency, time_t t, unsigned long nbyte);
+static void writeFrequencyPing(char *frequency, unsigned long nbyte);
+static void *runFrequencyUpdatingThread(void *ctx);
 #endif //UTILS_H
 

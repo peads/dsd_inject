@@ -17,36 +17,7 @@
 //
 // Created by Patrick Eads on 1/15/23.
 //
-#include <mysql.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <string.h>
-#include <pthread.h>
-#include <errno.h>
-#include <semaphore.h>
-#include <signal.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-
 #include "utils.h"
-
-const char *db_pass;
-const char *db_host;
-const char *db_user;
-const char *schema;
-
-static void writeUpdate(char *frequency, time_t t, unsigned long nbyte);
-static void writeFrequencyPing(char *frequency, unsigned long nbyte);
-static void *runFrequencyUpdatingThread(void *ctx);
-
-static int isRunning = 0;
-static int pidCount = 0;
-static sem_t sem;
-static sem_t sem1;
-static pthread_t pids[MAX_PIDS];
 
 static void onSignal(int sig) {
 
@@ -95,7 +66,7 @@ static void initializeSignalHandlers() {
 
 static void onExit(void) {
     int status;
-    isRunning = 0;
+    isRunning = -1;
 
     if ((status = sem_close(&sem)) != 0) {
         fprintf(stderr, "unable to unlink semaphore. status: %s\n", strerror(status));
@@ -151,7 +122,7 @@ static char *getEnvVarOrDefault(char *name, char *def) {
 
 void initializeEnv() {
     
-    if (isRunning) {
+    if (isRunning || -1 == isRunning) {
         return;
     }
 

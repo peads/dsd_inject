@@ -22,17 +22,10 @@
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include <string.h>
 #include <pthread.h>
 
-#if defined(__USE_XOPEN_EXTENDED) || defined(__USE_MISC)
-#undef __USE_MISC
-#undef __USE_XOPEN_EXTENDED
-#endif
-
-//#include <signal.h>
-#include "utils.h"
+#include "global.h"
 
 extern void initializeEnv();
 extern void *runInsertThread(void *ctx);
