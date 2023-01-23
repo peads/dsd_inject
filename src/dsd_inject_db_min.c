@@ -114,6 +114,7 @@ void initializeSignalHandlers() {
 }
 
 ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
+    pthread_t pid = 0;
     if (NULL == next_write) {
         initializeEnv();
         initializeSignalHandlers();
@@ -130,18 +131,18 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
             exit(-1);
         }
 
-        pthread_t upid = 0;
+        pthread_t pid = 0;
         const char fileDes[] = "/home/peads/fm-err-out";
-        pthread_create(&upid, NULL, runFrequencyUpdatingThread, (void *) fileDes);
-        pthread_detach(upid);
+        pthread_create(&pid, NULL, runFrequencyUpdatingThread, (void *) fileDes);
+        pthread_detach(pid);
     }
 
     struct insertArgs *args = malloc(sizeof(struct insertArgs)); 
     args->buf = malloc(nbyte * sizeof(char) + 1);
     args->nbyte = nbyte;
-    args->pid = 0;
+    pid = 0;
     memcpy(args->buf, buf, nbyte);
-    pthread_create(&args->pid, NULL, runInsertThread, args);
+    pthread_create(&pid, NULL, runInsertThread, args);
 
     return next_write(fildes, buf, nbyte, offset);
 }

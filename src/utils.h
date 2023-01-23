@@ -50,14 +50,12 @@
 struct insertArgs {
     void *buf;
     size_t nbyte;
-    pthread_t pid;
 };
 
 struct updateArgs {
     char *frequency;
     time_t t;
     unsigned long nbyte;
-    pthread_t pid;
 };
 #endif //UTILS_H
 

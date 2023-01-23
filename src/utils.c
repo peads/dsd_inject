@@ -311,7 +311,8 @@ void *runInsertThread(void *ctx) {
     sem_post(&sem);
     free(args->buf);
     free(args);
-    pthread_exit(&args->pid);
+    
+    return NULL;
 }
 
 void *runUpdateThread(void *ctx) {
@@ -321,7 +322,8 @@ void *runUpdateThread(void *ctx) {
     writeUpdate(args->frequency, args->t, args->nbyte);
 
     sem_post(&sem1);
-    pthread_exit(&args->pid);
+    
+    return NULL;
 }
 
 void *runPingThread(void *ctx) {
@@ -379,9 +381,9 @@ void *runFrequencyUpdatingThread(void *ctx) {
                 args->frequency = frequency;
                 args->t = t;
                 args->nbyte = 8;
-                args->pid = 0;
-                pthread_create(&args->pid, NULL, runUpdateThread, args);
-                pthread_detach(args->pid);
+                pid = 0;
+                pthread_create(&pid, NULL, runUpdateThread, args);
+                pthread_detach(pid);
             }
         }
     }
