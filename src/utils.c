@@ -42,10 +42,57 @@ void writeUpdate(char *frequency, time_t t, unsigned long nbyte);
 void writeFrequencyPing(char *frequency, unsigned long nbyte);
 void *notifyInsertThread(void *ctx);
 
-time_t updateStartTime;
-int isRunning = 0;
-sem_t sem;
-sem_t sem1;
+static int isRunning = 0;
+static int pidCount = 0;
+static sem_t sem;
+static sem_t sem1;
+static pthread_t pids[MAX_PIDS] = {-1};
+
+void onExit(void) {
+    int status;
+    isRunning = 0;
+
+    if ((status = sem_close(&sem)) != 0) {
+        fprintf(stderr, "unable to unlink semaphore. status: %s\n", strerror(status));
+    } else {
+        fprintf(stderr, "%s", "semaphore destroyed\n");
+    }
+    
+    if ((status = sem_close(&sem1)) != 0) {
+        fprintf(stderr, "unable to unlink semaphore. status: %s\n", strerror(status));
+    } else {
+        fprintf(stderr, "%s", "semaphore destroyed\n");
+    }
+    fprintf(stderr, "%s", "Awaiting quiescence\n");
+    int i = 0;
+    for (; i < MAX_PIDS; ++i) {
+        pthread_t pid = pids[i];
+        if (pid > 0) {
+            OUTPUT_DEBUG_STDERR(stderr, "Found pid: %lu", pid);
+            pthread_join(pid, NULL);
+        }
+    }
+    fprintf(stderr, "%s", "\n");
+}
+
+long createIndex() {
+
+    if (pidCount++ < MAX_PIDS) {
+        return pidCount;
+    }
+    
+    pidCount = 0;
+    return 0;
+}
+
+void addPid(pthread_t pid) {
+    OUTPUT_INFO_STDERR(stderr, "Adding pid: %lu", pid);
+
+    unsigned long idx = createIndex();
+    pids[idx] = pid;
+
+    OUTPUT_INFO_STDERR(stderr, "Adding pid: %lu", pid);
+}
 
 char *getEnvVarOrDefault(char *name, char *def) {
 
@@ -58,7 +105,6 @@ char *getEnvVarOrDefault(char *name, char *def) {
 }
 
 void initializeEnv() {
-    updateStartTime = time(NULL);
 
     OUTPUT_DEBUG_STDERR(stderr, "Semaphore resources: %d\n", SEM_RESOURCES);
     sem_init(&sem, 0, SEM_RESOURCES);

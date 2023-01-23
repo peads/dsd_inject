@@ -45,6 +45,7 @@
 
 #define INSERT_DATA "INSERT INTO imbedata (data) VALUES (?);"
 
+#define MAX_PIDS 512
 #define DATE_STRING "%04d-%02d-%02d %02d:%02d:%02d"
 
 struct insertArgs {
