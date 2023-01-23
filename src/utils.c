@@ -46,7 +46,52 @@ static int isRunning = 0;
 static int pidCount = 0;
 static sem_t sem;
 static sem_t sem1;
-static pthread_t pids[MAX_PIDS] = {-1};
+static pthread_t pids[MAX_PIDS];
+
+static void onSignal(int sig) {
+
+    fprintf(stderr, "\n\nCaught Signal: %s\n", strsignal(sig));
+    if (SIGUSR1 != sig && SIGUSR2 != sig) {
+        exit(-1);
+    }
+}
+
+static void initializeSignalHandlers() {
+
+    fprintf(stderr, "%s", "initializing signal handlers");
+
+    struct sigaction *sigInfo = malloc(sizeof(*sigInfo));
+    struct sigaction *sigHandler = malloc(sizeof(*sigHandler));
+
+    sigHandler->sa_handler = onSignal;
+    sigemptyset(&(sigHandler->sa_mask));
+    sigHandler->sa_flags = 0;
+
+    int sigs[] = {SIGABRT, SIGALRM, SIGFPE, SIGHUP, SIGILL,
+                  SIGINT, SIGPIPE, SIGQUIT, SIGSEGV, SIGTERM,
+                  SIGUSR1, SIGUSR2};
+
+    int i = 0;
+    for (; i < (int) LENGTH_OF(sigs); ++i) {
+        const int sig = sigs[i];
+        const char *name = strsignal(sig);
+
+        fprintf(stderr, "Initializing signal handler for signal: %s\n", name);
+
+        sigaction(sig, NULL, sigInfo);
+        const int res = sigaction(sig, sigHandler, sigInfo);
+
+        if (res == -1) {
+            fprintf(stderr, "\n\nWARNING: Unable to initialize handler for %s\n\n", name);
+            exit(-1);
+        } else {
+            fprintf(stderr, "Successfully initialized signal handler for signal: %s\n", name);
+        }
+    }
+
+    free(sigInfo);
+    free(sigHandler);
+}
 
 static void onExit(void) {
     int status;
@@ -110,6 +155,8 @@ void initializeEnv() {
         return;
     }
 
+    initializeSignalHandlers();
+ 
     atexit(onExit);
 
     OUTPUT_DEBUG_STDERR(stderr, "Semaphore resources: %d\n", SEM_RESOURCES);

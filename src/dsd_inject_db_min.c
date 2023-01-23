@@ -31,67 +31,20 @@
 #undef __USE_XOPEN_EXTENDED
 #endif
 
-#include <signal.h>
+//#include <signal.h>
 #include "utils.h"
 
 extern void initializeEnv();
 extern void *runInsertThread(void *ctx);
-extern void onExit();
 extern void addPid(pthread_t pid);
 
 static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
-
-void onSignal(int sig) {
-
-    fprintf(stderr, "\n\nCaught Signal: %s\n", strsignal(sig));
-    if (SIGUSR1 != sig && SIGUSR2 != sig) {
-        exit(-1);
-    }
-}
-
-void initializeSignalHandlers() {
-
-    fprintf(stderr, "%s", "initializing signal handlers");
-
-    struct sigaction *sigInfo = malloc(sizeof(*sigInfo));
-    struct sigaction *sigHandler = malloc(sizeof(*sigHandler));
-
-    sigHandler->sa_handler = onSignal;
-    sigemptyset(&(sigHandler->sa_mask));
-    sigHandler->sa_flags = 0;
-
-    int sigs[] = {SIGABRT, SIGALRM, SIGFPE, SIGHUP, SIGILL,
-                  SIGINT, SIGPIPE, SIGQUIT, SIGSEGV, SIGTERM,
-                  SIGUSR1, SIGUSR2};
-
-    int i = 0;
-    for (; i < (int) LENGTH_OF(sigs); ++i) {
-        const int sig = sigs[i];
-        const char *name = strsignal(sig);
-
-        fprintf(stderr, "Initializing signal handler for signal: %s\n", name);
-
-        sigaction(sig, NULL, sigInfo);
-        const int res = sigaction(sig, sigHandler, sigInfo);
-
-        if (res == -1) {
-            fprintf(stderr, "\n\nWARNING: Unable to initialize handler for %s\n\n", name);
-            exit(-1);
-        } else {
-            fprintf(stderr, "Successfully initialized signal handler for signal: %s\n", name);
-        }
-    }
-
-    free(sigInfo);
-    free(sigHandler);
-}
 
 ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
     pthread_t pid = 0;
     if (NULL == next_write) {
         initializeEnv();
-        initializeSignalHandlers();
- 
+
         fprintf(stderr, "%s", "wrapping write\n");
         next_write = dlsym(RTLD_NEXT, "write");
         const char *msg = dlerror();
