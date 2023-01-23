@@ -50,8 +50,8 @@ elseif(CMAKE_C_COMPILER_ID STREQUAL "AppleClang")
 endif()
 
 add_library(dsd_inject SHARED
+        src/global.h
         src/utils.h
         src/utils.c
-        src/correlate_frequencies.c
         src/dsd_inject_db_min.c
 )

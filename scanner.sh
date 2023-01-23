@@ -26,13 +26,16 @@ sleep 1
 
 #start the show
 rm -f $PWD/*-in $PWD/*-out
-touch fm-in fm-out db-in db-out
+touch fm-in fm-out db-in db-out fm-err-in fm-err-out
+
 socat -d -d pty,raw,link=$PWD/fm-in,echo=0 pty,raw,link=$PWD/fm-out,echo=0 &
 socat -d -d pty,raw,link=$PWD/db-in,echo=0 pty,raw,link=$PWD/db-out,echo=0 &
 socat -d -d pty,raw,link=$PWD/fm-err-in,echo=0 pty,raw,link=$PWD/fm-err-out,echo=0 &
 
 #create rtl_fm to sox plumbing via socat
-screen -d -m -S rtl_fm bash --noprofile --norc -c 'rtl_fm -L 10 -p -1 -T -f 155190k -f 154935k -f 155370k -f 155625k -f 155700k -f 155685k -f 156210k -M nfm -s 12.5k -l 550 -g 49.2 -t 2 $PWD/fm-in 2>$PWD/fm-err-in'
+screen -d -m -S rtl_fm bash --noprofile --norc -c 'rtl_fm -L 10 -p -1 -T -f 155190k -f 154935k -f 155370k -f 155625k -f 155700k -f 155685k -f 156210k -f 151325k -M nfm -s 12.5k -l 550 -g 49.2 -t 2 $PWD/fm-in 2>$PWD/fm-err-in'
 screen -d -m -S sox bash --noprofile --norc -c 'sox -t raw -r 12.5k -v 1 -es -b16 -L -c1 $PWD/fm-out -b16 -es -c1 -r 48000 -L -t raw $PWD/db-in'
-screen -S freq bash --noprofile --norc  -c 'LD_PRELOAD=$PWD/inject.so dsd -i $PWD/db-out -o /dev/null -u 7 -g 20 -f1 -pu -mc -d /media/MyCloudEX2Ultra/Public/merrimack_mbe/' 
+screen -d -m bash --noprofile --norc -c 'while read var; do     echo  $var; done < $PWD/fm-err-out'
+#screen -S freq 
+bash --noprofile --norc  -c 'LD_PRELOAD=$PWD/inject.so dsd -i $PWD/db-out -o /dev/null -u 7 -g 20 -f1 -pu -mc -d /media/MyCloudEX2Ultra/Public/merrimack_mbe/' 
 

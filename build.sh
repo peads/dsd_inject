@@ -14,5 +14,5 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-gcc -Werror  -Wno-format  -Wno-deprecated-declarations  -Wall -Wextra -O2   -m64 -fPIC -fno-stack-protector -fno-stack-clash-protection -shared   -ldl $(mysql_config --cflags) $PWD/src/utils.c  $PWD/src/dsd_inject_db_min.c   -o inject.so $(sed -e "s/-L.\+\/ //g" <<< $(mysql_config --libs))   -lz -pthread $([[ $OSTYPE == 'linux'* ]] && echo "-lrt")  -DDEBUG
+gcc -Werror  -Wno-format  -Wno-deprecated-declarations  -Wall -Wextra -O2   -m64 -fPIC -fno-stack-protector -fno-stack-clash-protection -shared   -ldl $(mysql_config --cflags) $PWD/src/utils.c  $PWD/src/dsd_inject_db_min.c   -o inject.so $(sed -e "s/-L.\+\/ //g" <<< $(mysql_config --libs))   -lz -pthread $([[ $OSTYPE == 'linux'* ]] && echo "-lrt")
 
