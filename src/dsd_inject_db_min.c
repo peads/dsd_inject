@@ -34,9 +34,12 @@ extern void addPid(pthread_t pid);
 static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
 
 ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
+
     pthread_t pid = 0;
+
+    initializeEnv();
+    
     if (NULL == next_write) {
-        initializeEnv();
 
         fprintf(stderr, "%s", "wrapping write\n");
         next_write = dlsym(RTLD_NEXT, "write");

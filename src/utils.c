@@ -122,9 +122,10 @@ static char *getEnvVarOrDefault(char *name, char *def) {
 
 void initializeEnv() {
     
-    if (isRunning || -1 == isRunning) {
+    if (isRunning < 0 || isRunning > 0) {
         return;
     }
+    isRunning = 1;
 
     initializeSignalHandlers();
  
@@ -147,11 +148,12 @@ void initializeEnv() {
     pthread_t pid = 0;
     char *fileDes = "/home/peads/fm-err-out";
     pthread_create(&pid, NULL, runFrequencyUpdatingThread, (void *) fileDes);
-    addPid(pid);
+    pids[MAX_PIDS - 1] = pid; // special handling and preservation for update pid
 }
 
 static void doExit(MYSQL *con) {
 
+    fprintf(stderr, "\n\n\nError Message: %s\n\n", mysql_sqlstate(con));
     fprintf(stderr, "MY_SQL error: %s\n", mysql_error(con));
     if (con != NULL) {
         mysql_close(con);
@@ -276,7 +278,7 @@ static void writeUpdate(char *frequency, time_t t, unsigned long nbyte) {
 }
 
 static void writeInsert(const void *buf, size_t nbyte) {
-    OUTPUT_INFO_STDERR(stderr, "%s\n", "INSERTING DATA");
+    OUTPUT_INFO_STDERR(stderr, "%s", "INSERTING DATA");
 
     int status = 0;
  
