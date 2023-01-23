@@ -38,9 +38,9 @@ const char *db_host;
 const char *db_user;
 const char *schema;
 
-void writeUpdate(char *frequency, time_t t, unsigned long nbyte);
-void writeFrequencyPing(char *frequency, unsigned long nbyte);
-void *notifyInsertThread(void *ctx);
+static void writeUpdate(char *frequency, time_t t, unsigned long nbyte);
+static void writeFrequencyPing(char *frequency, unsigned long nbyte);
+static void *runFrequencyUpdatingThread(void *ctx);
 
 static int isRunning = 0;
 static int pidCount = 0;
@@ -48,7 +48,7 @@ static sem_t sem;
 static sem_t sem1;
 static pthread_t pids[MAX_PIDS] = {-1};
 
-void onExit(void) {
+static void onExit(void) {
     int status;
     isRunning = 0;
 
@@ -75,8 +75,8 @@ void onExit(void) {
     fprintf(stderr, "%s", "\n");
 }
 
-long createIndex() {
-
+static long createIndex() {
+    
     if (pidCount++ < MAX_PIDS) {
         return pidCount;
     }
@@ -91,10 +91,10 @@ void addPid(pthread_t pid) {
     unsigned long idx = createIndex();
     pids[idx] = pid;
 
-    OUTPUT_INFO_STDERR(stderr, "Adding pid: %lu", pid);
+    OUTPUT_INFO_STDERR(stderr, "Added pid: %lu @ index: %lu", pid, idx);
 }
 
-char *getEnvVarOrDefault(char *name, char *def) {
+static char *getEnvVarOrDefault(char *name, char *def) {
 
     char *result = getenv(name);
 
@@ -105,6 +105,12 @@ char *getEnvVarOrDefault(char *name, char *def) {
 }
 
 void initializeEnv() {
+    
+    if (isRunning) {
+        return;
+    }
+
+    atexit(onExit);
 
     OUTPUT_DEBUG_STDERR(stderr, "Semaphore resources: %d\n", SEM_RESOURCES);
     sem_init(&sem, 0, SEM_RESOURCES);
@@ -116,12 +122,17 @@ void initializeEnv() {
         db_user = getEnvVarOrDefault("DB_USER", "root");
         schema = getEnvVarOrDefault("SCHEMA", "scanner");
     } else {
-        fprintf(stderr, "%s\n", "No database user password defined.");
+        fprintf(stderr, "%s\n", "No database user password defined in envionment.");
         exit(-1);
     }
+
+    pthread_t pid = 0;
+    char *fileDes = "/home/peads/fm-err-out";
+    pthread_create(&pid, NULL, runFrequencyUpdatingThread, (void *) fileDes);
+    addPid(pid);
 }
 
-void doExit(MYSQL *con) {
+static void doExit(MYSQL *con) {
 
     fprintf(stderr, "MY_SQL error: %s\n", mysql_error(con));
     if (con != NULL) {
@@ -130,7 +141,7 @@ void doExit(MYSQL *con) {
     exit(-1);
 }
 
-void generateMySqlTimeFromTm(MYSQL_TIME *dateDecoded, const struct tm *timeinfo) {
+static void generateMySqlTimeFromTm(MYSQL_TIME *dateDecoded, const struct tm *timeinfo) {
 
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Entering utils::generateMySqlTimeFromTm");
 
@@ -143,7 +154,7 @@ void generateMySqlTimeFromTm(MYSQL_TIME *dateDecoded, const struct tm *timeinfo)
     OUTPUT_DEBUG_STDERR(stderr, "%s", "Returning from  utils::generateMySqlTimeFromTm");
 }
 
-void writeFrequencyPing(char *frequency, unsigned long nbyte) {
+static void writeFrequencyPing(char *frequency, unsigned long nbyte) {
     OUTPUT_INFO_STDERR(stderr, "%s", "UPSERTING FREQUENCY PING");
 
     int status;
@@ -181,7 +192,7 @@ void writeFrequencyPing(char *frequency, unsigned long nbyte) {
     mysql_close(conn);
 }
 
-void writeUpdate(char *frequency, time_t t, unsigned long nbyte) {
+static void writeUpdate(char *frequency, time_t t, unsigned long nbyte) {
     OUTPUT_INFO_STDERR(stderr, "%s", "UPDATING FREQUENCY");
     
     int status;
@@ -246,7 +257,7 @@ void writeUpdate(char *frequency, time_t t, unsigned long nbyte) {
     free(dateDemod);
 }
 
-void writeInsert(const void *buf, size_t nbyte) {
+static void writeInsert(const void *buf, size_t nbyte) {
     OUTPUT_INFO_STDERR(stderr, "%s\n", "INSERTING DATA");
 
     int status = 0;
@@ -286,7 +297,7 @@ void writeInsert(const void *buf, size_t nbyte) {
     mysql_close(conn);
 }
 
-void sshiftLeft(char *s, int n)
+static void sshiftLeft(char *s, int n)
 {
    char* s2 = s + n;
    while ( *s2 )
@@ -298,7 +309,7 @@ void sshiftLeft(char *s, int n)
    *s = '\0';
 }
 
-double parseRmsFloat(char *s) {
+static double parseRmsFloat(char *s) {
     unsigned long nbyte = 1 + strchr(strchr(s, ' ') + 1, ' ') - s;
     s[nbyte - 1] = '\0';
     double result = atof(s);
@@ -306,7 +317,7 @@ double parseRmsFloat(char *s) {
     return result;
 }
 
-void parseFrequency(char *frequency, char *token) {
+static void parseFrequency(char *frequency, char *token) {
     char characteristic[7];
     char mantissa[7];
 
@@ -322,7 +333,7 @@ void parseFrequency(char *frequency, char *token) {
     sprintf(frequency, "%s.%s", characteristic, mantissa);
 }
 
-void parseLineData(char *frequency, double *avgRms, double *squelch, char *buffer) {
+static void parseLineData(char *frequency, double *avgRms, double *squelch, char *buffer) {
     int i = 0;
     char *token = strtok(buffer, ",");
 
@@ -361,7 +372,7 @@ void *runInsertThread(void *ctx) {
     return NULL;
 }
 
-void *runUpdateThread(void *ctx) {
+static void *runUpdateThread(void *ctx) {
     sem_wait(&sem1);
     struct updateArgs *args = (struct updateArgs *) ctx;
 
@@ -372,7 +383,7 @@ void *runUpdateThread(void *ctx) {
     return NULL;
 }
 
-void *runPingThread(void *ctx) {
+static void *runPingThread(void *ctx) {
     char *frequency = (char *) ctx;
 
     writeFrequencyPing(frequency, 8);
@@ -380,11 +391,7 @@ void *runPingThread(void *ctx) {
     return NULL; 
 }
 
-void *runFrequencyUpdatingThread(void *ctx) {
-
-    if (isRunning) {
-        return NULL;
-    }
+static void *runFrequencyUpdatingThread(void *ctx) {
 
     char *portname = (char *) ctx;
     char buffer[255];
@@ -419,9 +426,8 @@ void *runFrequencyUpdatingThread(void *ctx) {
             parseLineData(frequency, &avgRms, &squelch, buffer);
             if (avgRms >= squelch) {
                 pthread_t pid = 0;
-                pthread_create(&pid, NULL, runPingThread, frequency);
-                pthread_detach(pid);
-
+                pthread_create(&pid, NULL, runPingThread, frequency); 
+                addPid(pid);
 
                 struct updateArgs *args = malloc(sizeof(struct updateArgs));
                 args->frequency = frequency;
@@ -429,7 +435,7 @@ void *runFrequencyUpdatingThread(void *ctx) {
                 args->nbyte = 8;
                 pid = 0;
                 pthread_create(&pid, NULL, runUpdateThread, args);
-                pthread_detach(pid);
+                addPid(pid);
             }
         }
     }

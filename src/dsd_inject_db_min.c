@@ -34,10 +34,10 @@
 #include <signal.h>
 #include "utils.h"
 
-extern void *runFrequencyUpdatingThread(void *ctx);
 extern void initializeEnv();
 extern void *runInsertThread(void *ctx);
 extern void onExit();
+extern void addPid(pthread_t pid);
 
 static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
 
@@ -97,17 +97,11 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
         const char *msg = dlerror();
 
         fprintf(stderr, "%s", "setting atexit\n");
-        atexit(onExit);
 
         if (msg != NULL) {
             fprintf(stderr, "\nwrite: dlwrite failed: %s::Exiting\n", msg);
             exit(-1);
         }
-
-        pthread_t pid = 0;
-        const char fileDes[] = "/home/peads/fm-err-out";
-        pthread_create(&pid, NULL, runFrequencyUpdatingThread, (void *) fileDes);
-        pthread_detach(pid);
     }
 
     struct insertArgs *args = malloc(sizeof(struct insertArgs)); 
@@ -116,6 +110,7 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
     pid = 0;
     memcpy(args->buf, buf, nbyte);
     pthread_create(&pid, NULL, runInsertThread, args);
+    addPid(pid);
 
     return next_write(fildes, buf, nbyte, offset);
 }
