@@ -80,6 +80,8 @@ static void onExit(void) {
         fprintf(stderr, "%s", "semaphore destroyed\n");
     }
     fprintf(stderr, "%s", "Awaiting quiescence\n");
+    pthread_exit(&pids[MAX_PIDS - 1]);
+    fprintf(stderr, "%s", "Killed update thread\n");
     int i = 0;
     for (; i < MAX_PIDS; ++i) {
         pthread_t pid = pids[i];
