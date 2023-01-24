@@ -80,6 +80,8 @@ static void onExit(void) {
         fprintf(stderr, "%s", "semaphore destroyed\n");
     }
     fprintf(stderr, "%s", "Awaiting quiescence\n");
+    pthread_exit(&pids[MAX_PIDS - 1]);
+    fprintf(stderr, "%s", "Killed update thread\n");
     int i = 0;
     for (; i < MAX_PIDS; ++i) {
         pthread_t pid = pids[i];
@@ -122,9 +124,10 @@ static char *getEnvVarOrDefault(char *name, char *def) {
 
 void initializeEnv() {
     
-    if (isRunning || -1 == isRunning) {
+    if (isRunning < 0 || isRunning > 0) {
         return;
     }
+    isRunning = 1;
 
     initializeSignalHandlers();
  
@@ -147,11 +150,12 @@ void initializeEnv() {
     pthread_t pid = 0;
     char *fileDes = "/home/peads/fm-err-out";
     pthread_create(&pid, NULL, runFrequencyUpdatingThread, (void *) fileDes);
-    addPid(pid);
+    pids[MAX_PIDS - 1] = pid; // special handling and preservation for update pid
 }
 
 static void doExit(MYSQL *con) {
 
+    fprintf(stderr, "\n\n\nError Message: %s\n\n", mysql_sqlstate(con));
     fprintf(stderr, "MY_SQL error: %s\n", mysql_error(con));
     if (con != NULL) {
         mysql_close(con);
@@ -276,7 +280,7 @@ static void writeUpdate(char *frequency, time_t t, unsigned long nbyte) {
 }
 
 static void writeInsert(const void *buf, size_t nbyte) {
-    OUTPUT_INFO_STDERR(stderr, "%s\n", "INSERTING DATA");
+    OUTPUT_INFO_STDERR(stderr, "%s", "INSERTING DATA");
 
     int status = 0;
  
@@ -440,7 +444,7 @@ static void *runFrequencyUpdatingThread(void *ctx) {
 
             buffer[bufSize] = '\0';
             bufSize = 0;
-            
+
             parseLineData(frequency, &avgRms, &squelch, buffer);
             if (avgRms >= squelch) {
                 pthread_t pid = 0;
@@ -458,7 +462,7 @@ static void *runFrequencyUpdatingThread(void *ctx) {
         }
     }
     fclose(fd);
-
+    isRunning = 0;
     return NULL;
 }
 
