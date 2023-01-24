@@ -93,23 +93,10 @@ static void onExit(void) {
     fprintf(stderr, "%s", "\n");
 }
 
-static long createIndex() {
-    
-    if (pidCount++ < MAX_PIDS) {
-        return pidCount;
-    }
-    
-    pidCount = 0;
-    return 0;
-}
-
 void addPid(pthread_t pid) {
-    OUTPUT_INFO_STDERR(stderr, "Adding pid: %lu", pid);
+    OUTPUT_INFO_STDERR(stderr, "Adding pid: %lu @ index: %lu", pid, pidCount);
 
-    unsigned long idx = createIndex();
-    pids[idx] = pid;
-
-    OUTPUT_INFO_STDERR(stderr, "Added pid: %lu @ index: %lu", pid, idx);
+    pids[pidCount++] = pid;
 }
 
 static char *getEnvVarOrDefault(char *name, char *def) {

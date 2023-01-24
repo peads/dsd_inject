@@ -48,7 +48,7 @@ const char *db_user;
 const char *schema;
 
 static int isRunning = 0;
-static int pidCount = 0;
+static unsigned char pidCount = 0;
 static sem_t sem;
 static sem_t sem1;
 static pthread_t pids[MAX_PIDS];
