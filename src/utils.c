@@ -444,7 +444,7 @@ static void *runFrequencyUpdatingThread(void *ctx) {
 
             buffer[bufSize] = '\0';
             bufSize = 0;
-            
+
             parseLineData(frequency, &avgRms, &squelch, buffer);
             if (avgRms >= squelch) {
                 pthread_t pid = 0;
@@ -462,7 +462,7 @@ static void *runFrequencyUpdatingThread(void *ctx) {
         }
     }
     fclose(fd);
-
+    isRunning = 0;
     return NULL;
 }
 
