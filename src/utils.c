@@ -304,9 +304,14 @@ static void *runUpdateThread(void *ctx) {
     struct updateArgs *args = (struct updateArgs *) ctx;
 
     pthread_mutex_lock(&mutex);
-    pthread_cond_wait(&cond, &mutex);
 
-    writeUpdate(args->hid);
+    struct timespec spec;
+    clock_gettime(CLOCK_REALTIME, &spec);
+    spec.tv_sec += 50;
+
+    if (0 == pthread_cond_timedwait(&cond, &mutex, &spec)) {
+        writeUpdate(args->hid);
+    }
 
     pthread_mutex_unlock(&mutex);
 
