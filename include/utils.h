@@ -76,7 +76,6 @@ static void *runFrequencyUpdatingThread(void *ctx);
 static void onExit(void);
 static char *getEnvVarOrDefault(char *name, char *def);
 static void doExit(MYSQL *con);
-static void generateMySqlTimeFromTm(MYSQL_TIME *dateDecoded, const struct tm *timeinfo);
 static long writeInsert(const void *buf, size_t nbyte);
 static double parseRmsFloat(char *s);
 static void parseFrequency(char *frequency, char *token);

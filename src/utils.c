@@ -63,19 +63,6 @@ static void doExit(MYSQL *con) {
     exit(-1);
 }
 
-static void generateMySqlTimeFromTm(MYSQL_TIME *dateDecoded, const struct tm *timeinfo) {
-
-    fprintf(stderr, "%s\n", "Entering utils::generateMySqlTimeFromTm");
-
-    dateDecoded->year = timeinfo->tm_year + 1900; // struct tm stores year as years since 1900
-    dateDecoded->month = timeinfo->tm_mon + 1; // struct tm stores month as months since January (0-11)
-    dateDecoded->day = timeinfo->tm_mday;
-    dateDecoded->hour = timeinfo->tm_hour;
-    dateDecoded->minute = timeinfo->tm_min;
-    dateDecoded->second = timeinfo->tm_sec;
-    fprintf(stderr, "%s\n", "Returning from  utils::generateMySqlTimeFromTm");
-}
-
 static char *writeFrequencyPing(char *frequency, unsigned long nbyte) {
     fprintf(stderr, "%s\n", "UPSERTING FREQUENCY PING");
 
@@ -348,7 +335,7 @@ static void *runFrequencyUpdatingThread(void *ctx) {
 
     fprintf(stderr, "%s\n", "Starting rtl_fm read thread");
     char *portname = (char *) ctx;
-    unsigned char buffer[MAX_UCHAR];
+    char buffer[MAX_UCHAR];
     unsigned long last = strchr(portname, '\0') - portname;
     unsigned long nbyte = 1 + last;
     char filename[nbyte];
