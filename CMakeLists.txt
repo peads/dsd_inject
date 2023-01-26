@@ -33,9 +33,8 @@ FILE(GLOB HEADERS include/*.h)
 
 include_directories("${PROJECT_SOURCE_DIR}/include")
 
-add_definitions(-lmysqlclient)
-
 add_library(dsd_inject SHARED ${SRCS} ${HEADERS})
+TARGET_LINK_LIBRARIES(dsd_inject ${LIBS})
 
 #include_directories(src)
 #
