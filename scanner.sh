@@ -37,5 +37,5 @@ screen -d -m -S rtl_fm bash --noprofile --norc -c 'rtl_fm -L 10 -p -1 -T -f 1551
 screen -d -m -S sox bash --noprofile --norc -c 'sox -t raw -r 12.5k -v 1 -es -b16 -L -c1 $PWD/fm-out -b16 -es -c1 -r 48000 -L -t raw $PWD/db-in'
 screen -d -m bash --noprofile --norc -c 'while read var; do     echo  $var; done < $PWD/fm-err-out'
 #screen -S freq 
-bash --noprofile --norc  -c 'LD_PRELOAD=$PWD/inject.so dsd -i $PWD/db-out -o /dev/null -u 7 -g 20 -f1 -pu -mc -q' 
+bash --noprofile --norc  -c '$PWD/dsd1/build/dsd -i $PWD/db-out -o /dev/null -u 7 -g 20 -f1 -pu -mc -q -d $PWD/merrimack_mbe/' 
 
