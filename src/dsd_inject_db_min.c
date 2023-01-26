@@ -23,19 +23,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
-
-#include "global.h"
 
 extern void initializeEnv();
-extern void *runInsertThread(void *ctx);
-extern void addPid(pthread_t pid);
+extern void addData(void *buf, size_t nbyte);
 
 static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte, off_t offset) = NULL;
 
 ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
-
-    pthread_t pid = 0;
 
     initializeEnv();
     
@@ -53,13 +47,9 @@ ssize_t write(int fildes, const void *buf, size_t nbyte, off_t offset) {
         }
     }
 
-    struct insertArgs *args = malloc(sizeof(struct insertArgs)); 
-    args->buf = malloc(nbyte * sizeof(char) + 1);
-    args->nbyte = nbyte;
-    pid = 0;
-    memcpy(args->buf, buf, nbyte);
-    pthread_create(&pid, NULL, runInsertThread, args);
-    addPid(pid);
+    char *buff = malloc(nbyte * sizeof(char));
+    memcpy(buff, buf, nbyte);
+    addData(buff, nbyte);
 
     return next_write(fildes, buf, nbyte, offset);
 }
